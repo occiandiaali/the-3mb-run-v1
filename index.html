@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="public/logo.svg" />
+    <title>3MB: Third Mainland Bridge Challenge</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Configuration Script -->
+    <script src="config.js"></script>
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@300;400;600;700&display=swap");
+
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #030712;
+        color: #f8fafc;
+      }
+
+      .font-digital {
+        font-family: "Orbitron", monospace;
+      }
+
+      .glass-panel {
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      .glow-cyan {
+        box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.5);
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-cyan-500 selection:text-black"
+  >
+    <!-- Header / Navigation -->
+    <header
+      class="w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-lg sticky top-0 z-40"
+    >
+      <div
+        class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="w-[48px] h-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-orange-600 flex items-center justify-center font-digital font-black text-black text-lg"
+          >
+            3MB
+          </div>
+          <span
+            class="font-digital font-bold text-sm tracking-widest text-slate-200 hidden sm:inline"
+            >THIRD MAINLAND BRIDGE</span
+          >
+        </div>
+
+        <div
+          id="user-pill"
+          class="hidden items-center gap-2 bg-slate-900 border border-slate-700/60 rounded-full px-3 py-1 text-xs"
+        >
+          <span
+            class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"
+          ></span>
+          <span id="user-pill-name" class="font-bold text-cyan-400"
+            >Driver</span
+          >
+          <button
+            id="signout-btn"
+            class="text-slate-400 hover:text-rose-400 font-bold ml-2 transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main
+      class="max-w-6xl mx-auto px-4 py-8 sm:py-12 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"
+    >
+      <!-- Left Column: Title, Intro & Authentication Flow -->
+      <div class="lg:col-span-6 space-y-6">
+        <div>
+          <span
+            class="inline-block px-3 py-1 rounded-full text-[10px] font-digital font-bold tracking-widest bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 uppercase mb-3"
+          >
+            11.8 KM Speedrun Simulator
+          </span>
+          <h1
+            class="text-4xl sm:text-6xl font-black font-digital tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent"
+          >
+            3MB CHALLENGE
+          </h1>
+          <p class="text-sm sm:text-base text-slate-300 mt-3 leading-relaxed">
+            Navigate Lagos' iconic
+            <span class="text-cyan-400 font-bold"
+              >11.8 KM Third Mainland Bridge</span
+            >
+            in record time. Dodge chaotic traffic from behind the wheel of your
+            vehicle without destroying your car's integrity.
+          </p>
+        </div>
+
+        <!-- Notification Alert -->
+        <div
+          id="auth-alert"
+          class="hidden p-3.5 rounded-xl border text-xs font-semibold"
+        ></div>
+
+        <!-- Auth & Onboarding Container -->
+        <div
+          class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4"
+        >
+          <!-- STEP 1: Magic Link Form -->
+          <div id="step-auth" class="space-y-4">
+            <div class="flex items-center gap-2">
+              <span
+                class="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 font-digital font-bold text-xs flex items-center justify-center"
+                >1</span
+              >
+              <h3
+                class="font-bold text-sm text-slate-200 uppercase tracking-wider"
+              >
+                Driver Authentication
+              </h3>
+            </div>
+            <p class="text-xs text-slate-400">
+              Enter your email address to receive a secure passwordless Login /
+              Signup link.
+            </p>
+
+            <form id="magic-link-form" class="space-y-3">
+              <input
+                type="email"
+                id="auth-email"
+                required
+                placeholder="driver@speedrun.com"
+                class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
+              />
+              <button
+                type="submit"
+                id="send-magic-btn"
+                class="w-full bg-gradient-to-r from-cyan-500 to-orange-600 hover:from-cyan-400 hover:to-orange-500 text-black font-bold text-sm py-3 rounded-xl transition-all font-digital uppercase tracking-wider glow-cyan"
+              >
+                Send Magic Link
+              </button>
+            </form>
+          </div>
+
+          <!-- STEP 2: Username Creation Form (Hidden by default) -->
+          <div id="step-username" class="hidden space-y-4">
+            <div class="flex items-center gap-2">
+              <span
+                class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 font-digital font-bold text-xs flex items-center justify-center"
+                >2</span
+              >
+              <h3
+                class="font-bold text-sm text-slate-200 uppercase tracking-wider"
+              >
+                Choose Driver Alias
+              </h3>
+            </div>
+            <p class="text-xs text-slate-400">
+              Set your unique callsign to display on the global 11.8 KM speedrun
+              leaderboard.
+            </p>
+
+            <form id="username-form" class="space-y-3">
+              <input
+                type="text"
+                id="username-input"
+                required
+                minlength="3"
+                maxlength="16"
+                pattern="[a-zA-Z0-9_]+"
+                placeholder="e.g. LagosRacer_99"
+                class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500 transition-colors"
+              />
+              <p class="text-[10px] text-slate-500">
+                Alphanumeric characters and underscores only (3-16 chars).
+              </p>
+              <button
+                type="submit"
+                class="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm py-3 rounded-xl transition-all font-digital uppercase tracking-wider"
+              >
+                Save Driver Profile
+              </button>
+            </form>
+          </div>
+
+          <!-- STEP 3: Authenticated Ready to Drive State (Hidden by default) -->
+          <div id="step-ready" class="hidden space-y-4 text-center py-2">
+            <div
+              class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 mb-1"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 13l4 4L19 7"
+                ></path>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-digital text-lg font-bold text-emerald-400">
+                AUTHENTICATED & READY
+              </h3>
+              <p id="ready-username-msg" class="text-xs text-slate-300 mt-1">
+                Logged in as <span class="text-cyan-400 font-bold">--</span>
+              </p>
+            </div>
+
+            <a
+              href="play.html"
+              class="block w-full text-center bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm py-3.5 rounded-xl transition-all font-digital uppercase tracking-widest shadow-lg shadow-emerald-500/20"
+            >
+              Start Engine (Launch Play)
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Leaderboard & Database Setup Drawer -->
+      <div class="lg:col-span-6 space-y-6">
+        <!-- Global Leaderboard Display -->
+        <div
+          class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4"
+        >
+          <div
+            class="flex items-center justify-between border-b border-slate-800 pb-3"
+          >
+            <div class="flex items-center gap-2">
+              <svg
+                class="w-5 h-5 text-amber-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+              <h2
+                class="font-digital font-bold text-sm uppercase tracking-wider text-slate-200"
+              >
+                Global Leaderboard (Fastest 11.8 KM)
+              </h2>
+            </div>
+            <span class="text-[10px] font-digital text-cyan-400 font-bold"
+              >TOP 10</span
+            >
+          </div>
+
+          <div
+            id="leaderboard-loading"
+            class="text-center py-8 text-xs text-slate-500"
+          >
+            Loading standings...
+          </div>
+
+          <div id="leaderboard-list" class="space-y-2 hidden">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer
+      class="w-full border-t border-slate-800/80 py-4 text-center text-xs text-slate-500"
+    >
+      3MB Speedrun Challenge • Built with AI by
+      <a
+        href="https://occiandiaali.com"
+        target="_blank"
+        rel="noreferrer"
+        style="text-decoration: underline; color: wheat"
+        >Occian F Diaali</a
+      >
+    </footer>
+
+    <script>
+      const config = window.CONFIG || {};
+      const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
+
+      let supabaseClient = null;
+
+      // Safely initialize the Supabase client instance
+      function initSupabaseClient() {
+        const isPlaceholder =
+          !SUPABASE_URL ||
+          SUPABASE_URL.includes("YOUR_SUPABASE") ||
+          !SUPABASE_ANON_KEY ||
+          SUPABASE_ANON_KEY.includes("YOUR_SUPABASE");
+
+        if (
+          !isPlaceholder &&
+          window.supabase &&
+          typeof window.supabase.createClient === "function"
+        ) {
+          try {
+            supabaseClient = window.supabase.createClient(
+              SUPABASE_URL,
+              SUPABASE_ANON_KEY,
+            );
+          } catch (err) {
+            console.warn("Supabase client initialization failed:", err);
+            supabaseClient = null;
+          }
+        }
+      }
+
+      initSupabaseClient();
+
+      const alertEl = document.getElementById("auth-alert");
+      function showAlert(msg, isError = false) {
+        alertEl.innerText = msg;
+        alertEl.className = `p-3.5 rounded-xl border text-xs font-semibold ${isError ? "bg-rose-500/10 border-rose-500/40 text-rose-400" : "bg-cyan-500/10 border-cyan-500/40 text-cyan-400"}`;
+        alertEl.classList.remove("hidden");
+      }
+
+      async function initPage() {
+        if (!supabaseClient) {
+          showAlert(
+            "Configuration misalignment. Please contact Support.",
+            false,
+          );
+          fetchMockLeaderboard();
+          return;
+        }
+
+        try {
+          fetchGlobalLeaderboard();
+
+          // Check current auth session
+          const { data, error } = await supabaseClient.auth.getSession();
+          if (error) {
+            console.warn("Session check error:", error);
+            fetchMockLeaderboard();
+            return;
+          }
+
+          const session = data ? data.session : null;
+          if (session && session.user) {
+            await checkDriverProfile(session.user);
+          } else {
+            // Handle Magic Link Redirect query string / hash
+            const hash = window.location.hash;
+            if (hash && hash.includes("access_token")) {
+              const { data: userData, error: userError } =
+                await supabaseClient.auth.getUser();
+              if (userData && userData.user && !userError) {
+                await checkDriverProfile(userData.user);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Initialization error:", err);
+          fetchMockLeaderboard();
+        }
+
+        // Check for URL alert parameters from play.html
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("unauthorized")) {
+          showAlert(
+            "Access Denied: Please log in and set a driver alias first.",
+            true,
+          );
+        }
+      }
+
+      async function checkDriverProfile(user) {
+        if (!supabaseClient || !user) return;
+        try {
+          const { data, error } = await supabaseClient
+            .from("drivers")
+            .select("username")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          document.getElementById("step-auth").classList.add("hidden");
+
+          if (data && data.username) {
+            // Profile exists - show ready state
+            document.getElementById("step-username").classList.add("hidden");
+            document.getElementById("step-ready").classList.remove("hidden");
+            document.getElementById("ready-username-msg").innerHTML =
+              `Logged in as <span class="text-cyan-400 font-bold">${data.username}</span>`;
+
+            document.getElementById("user-pill-name").innerText = data.username;
+            document.getElementById("user-pill").classList.remove("hidden");
+            document.getElementById("user-pill").classList.add("flex");
+          } else {
+            // Driver needs username
+            document.getElementById("step-username").classList.remove("hidden");
+            document.getElementById("step-ready").classList.add("hidden");
+          }
+        } catch (err) {
+          console.warn("Error checking driver profile:", err);
+        }
+      }
+
+      // Handle Magic Link Submission
+      document
+        .getElementById("magic-link-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          if (!supabaseClient)
+            return showAlert(
+              "Valid Supabase config required in config.js.",
+              true,
+            );
+
+          const email = document.getElementById("auth-email").value.trim();
+          const btn = document.getElementById("send-magic-btn");
+          btn.innerText = "SENDING...";
+          btn.disabled = true;
+
+          try {
+            const { error } = await supabaseClient.auth.signInWithOtp({
+              email,
+              options: {
+                emailRedirectTo:
+                  window.location.origin + window.location.pathname,
+              },
+            });
+
+            if (error) {
+              showAlert(error.message, true);
+              btn.innerText = "SEND MAGIC LINK";
+              btn.disabled = false;
+            } else {
+              showAlert(
+                "Magic Link sent! Please check your email inbox to complete sign-in.",
+              );
+              btn.innerText = "LINK SENT";
+            }
+          } catch (err) {
+            showAlert(
+              "Failed to send Magic Link. Verify your Supabase URL & keys.",
+              true,
+            );
+            btn.innerText = "SEND MAGIC LINK";
+            btn.disabled = false;
+          }
+        });
+
+      // Handle Username Form
+      document
+        .getElementById("username-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          if (!supabaseClient) return;
+
+          const username = document
+            .getElementById("username-input")
+            .value.trim();
+
+          try {
+            const {
+              data: { session },
+            } = await supabaseClient.auth.getSession();
+            const user = session ? session.user : null;
+
+            if (!user)
+              return showAlert("Session expired. Please log in again.", true);
+
+            const { error } = await supabaseClient
+              .from("drivers")
+              .insert([{ id: user.id, username }]);
+
+            if (error) {
+              showAlert(
+                error.message.includes("unique")
+                  ? "Username already taken! Choose another."
+                  : error.message,
+                true,
+              );
+            } else {
+              showAlert("Driver Profile Created Successfully!");
+              await checkDriverProfile(user);
+            }
+          } catch (err) {
+            showAlert("Error creating profile: " + err.message, true);
+          }
+        });
+
+      // Signout Button
+      document
+        .getElementById("signout-btn")
+        .addEventListener("click", async () => {
+          if (supabaseClient) await supabaseClient.auth.signOut();
+          window.location.reload();
+        });
+
+      // Fetch Global Leaderboard
+      async function fetchGlobalLeaderboard() {
+        const loadingEl = document.getElementById("leaderboard-loading");
+        const listEl = document.getElementById("leaderboard-list");
+
+        if (!supabaseClient || typeof supabaseClient.from !== "function") {
+          fetchMockLeaderboard();
+          return;
+        }
+
+        try {
+          const { data, error } = await supabaseClient
+            .from("leaderboards")
+            .select("username, completion_time_formatted, date_achieved")
+            .order("completion_time_ms", { ascending: true })
+            .limit(10);
+
+          loadingEl.classList.add("hidden");
+          listEl.classList.remove("hidden");
+
+          if (error || !data || data.length === 0) {
+            listEl.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">No completed speedruns recorded yet. Be the first!</p>`;
+            return;
+          }
+
+          listEl.innerHTML = data
+            .map(
+              (item, idx) => `
+          <div class="flex items-center justify-between bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl text-xs">
+            <div class="flex items-center gap-3">
+              <span class="font-digital font-bold text-slate-500 w-4">${idx + 1}.</span>
+              <span class="font-bold text-slate-200">${item.username}</span>
+            </div>
+            <span class="font-digital font-bold text-cyan-400">${item.completion_time_formatted}</span>
+          </div>
+        `,
+            )
+            .join("");
+        } catch (err) {
+          console.warn("Failed to fetch leaderboard:", err);
+          fetchMockLeaderboard();
+        }
+      }
+
+      function fetchMockLeaderboard() {
+        document.getElementById("leaderboard-loading").classList.add("hidden");
+        const listEl = document.getElementById("leaderboard-list");
+        listEl.classList.remove("hidden");
+        listEl.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">Configure valid Supabase keys in config.js to view live standings.</p>`;
+      }
+
+      initPage();
+    </script>
+  </body>
+</html>

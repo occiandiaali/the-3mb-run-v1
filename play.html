@@ -1,0 +1,1738 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <link rel="icon" type="image/svg+xml" href="/public/logo.svg" />
+    <title>3MB | Third Mainland Bridge Challenge</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Inter:wght@300;400;600;700&display=swap");
+
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+        font-family: "Inter", sans-serif;
+        background-color: #030712;
+        color: #fff;
+      }
+
+      .font-digital {
+        font-family: "Orbitron", monospace;
+      }
+
+      /* Glassmorphism theme elements */
+      .glass-card {
+        background: rgba(15, 23, 42, 0.88);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+      }
+
+      .glass-btn {
+        background: rgba(30, 41, 59, 0.85);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        touch-action: manipulation;
+        transition:
+          background 0.1s ease,
+          transform 0.08s ease,
+          border-color 0.1s ease;
+      }
+
+      .glass-btn:active,
+      .glass-btn.active {
+        background: rgba(59, 130, 246, 0.65);
+        border-color: rgba(147, 197, 253, 0.9);
+        transform: scale(0.94);
+        box-shadow: 0 0 16px rgba(59, 130, 246, 0.5);
+      }
+
+      .scanlines {
+        background: linear-gradient(
+          rgba(18, 16, 16, 0) 50%,
+          rgba(0, 0, 0, 0.3) 50%
+        );
+        background-size: 100% 4px;
+      }
+
+      /* Screen shake viewport animation */
+      .shake-viewport {
+        animation: cameraShake 0.35s ease-in-out infinite;
+      }
+
+      @keyframes cameraShake {
+        0% {
+          transform: translate(1px, 1px) rotate(0deg);
+        }
+        20% {
+          transform: translate(-2px, -1px) rotate(-0.5deg);
+        }
+        40% {
+          transform: translate(-3px, 1px) rotate(0.5deg);
+        }
+        60% {
+          transform: translate(2px, 2px) rotate(0deg);
+        }
+        80% {
+          transform: translate(1px, -1px) rotate(0.5deg);
+        }
+        100% {
+          transform: translate(-1px, 1px) rotate(-0.5deg);
+        }
+      }
+
+      #canvas-container {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+        transform-origin: center center;
+      }
+
+      #hud-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: clamp(0.35rem, 1.5vw, 1rem);
+      }
+
+      .interactive {
+        pointer-events: auto;
+      }
+
+      @keyframes pulse-led {
+        0%,
+        100% {
+          opacity: 1;
+          filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.9));
+        }
+        50% {
+          opacity: 0.4;
+          filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.3));
+        }
+      }
+
+      .live-dot {
+        animation: pulse-led 1.2s infinite ease-in-out;
+      }
+    </style>
+
+    <!-- Auth Guard Script -->
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+        const config = window.CONFIG || {};
+        const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
+
+        const isSupabaseAvailable =
+          SUPABASE_URL &&
+          SUPABASE_URL !== "https://YOUR_SUPABASE_PROJECT_ID.supabase.co" &&
+          window.supabase &&
+          typeof window.supabase.createClient === "function";
+
+        if (isSupabaseAvailable) {
+          try {
+            const supabase = window.supabase.createClient(
+              SUPABASE_URL,
+              SUPABASE_ANON_KEY,
+            );
+
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data || !data.session) {
+              window.location.href = "index.html?unauthorized=true";
+              return;
+            }
+
+            const user = data.session.user;
+            const { data: driverData, error: driverErr } = await supabase
+              .from("drivers")
+              .select("username")
+              .eq("id", user.id);
+
+            if (
+              driverErr ||
+              !driverData ||
+              driverData.length === 0 ||
+              !driverData[0].username
+            ) {
+              window.location.href = "index.html?unauthorized=true";
+              return;
+            }
+
+            window.currentUser = user;
+            window.currentDriverName = driverData[0].username;
+          } catch (err) {
+            console.warn(
+              "Supabase auth check bypassed; running local demo session.",
+              err,
+            );
+            window.currentDriverName = "DemoDriver";
+          }
+        } else {
+          window.currentDriverName = "DemoDriver";
+        }
+      });
+    </script>
+  </head>
+  <body class="bg-slate-950 text-white antialiased overflow-hidden select-none">
+    <!-- 3D Render Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- HUD Overlay UI -->
+    <div id="hud-overlay">
+      <!-- Top HUD Row: Placed neatly below Rearview Mirror Space -->
+      <div
+        class="grid grid-cols-2 sm:grid-cols-3 items-start w-full gap-1.5 sm:gap-2 pt-10 sm:pt-12"
+      >
+        <!-- Top Left: Progress & Integrity -->
+        <div
+          class="glass-card rounded-xl p-1.5 sm:p-3 flex flex-col justify-between max-w-[130px] sm:max-w-[210px] w-full"
+        >
+          <div>
+            <div class="flex justify-between items-center mb-0.5">
+              <span
+                class="hidden sm:inline text-[9px] uppercase tracking-wider text-slate-400 font-bold"
+                >PROGRESS</span
+              >
+              <span
+                id="hud-timer"
+                class="font-digital text-[10px] sm:text-xs text-amber-400 font-bold"
+                >00:00.0</span
+              >
+            </div>
+
+            <div
+              id="hud-distance"
+              class="font-digital text-xs sm:text-lg font-black text-cyan-400 leading-tight"
+            >
+              0.0 / 11.8 KM
+            </div>
+
+            <div
+              class="w-full bg-slate-800/80 h-1 sm:h-1.5 rounded-full overflow-hidden mt-1"
+            >
+              <div
+                id="hud-progress-bar"
+                class="bg-cyan-400 h-full w-0 transition-all duration-150"
+              ></div>
+            </div>
+          </div>
+
+          <div class="mt-1.5 pt-1 border-t border-slate-700/50">
+            <div
+              class="flex items-center justify-between text-[8px] sm:text-[10px] mb-0.5"
+            >
+              <span class="text-slate-300 font-bold tracking-wider"
+                >DAMAGE</span
+              >
+              <span
+                id="hud-integrity-val"
+                class="font-digital font-black text-emerald-400"
+                >100%</span
+              >
+            </div>
+            <div
+              class="w-full bg-slate-800/80 h-1 sm:h-1.5 rounded-full overflow-hidden"
+            >
+              <div
+                id="hud-integrity-bar"
+                class="bg-emerald-400 h-full w-full transition-all duration-200"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Center Spacer for Desktop Viewport -->
+        <div class="hidden sm:flex justify-center items-start"></div>
+
+        <!-- Top Right: Speedometer, Stacked Gear/RPM & Environment Status -->
+        <div
+          class="glass-card rounded-xl p-1.5 sm:p-3 flex flex-col items-end justify-between justify-self-end max-w-[130px] sm:max-w-[210px] w-full"
+        >
+          <div class="text-right w-full">
+            <span
+              class="text-[8px] sm:text-[10px] uppercase tracking-wider text-slate-400 font-bold block"
+              >SPEED</span
+            >
+            <div class="flex items-baseline justify-end gap-0.5 sm:gap-1">
+              <span
+                id="hud-speed"
+                class="font-digital text-xl sm:text-3xl font-black text-amber-400 leading-none"
+                >0</span
+              >
+              <span class="text-[8px] sm:text-xs text-amber-500 font-bold"
+                >KM/H</span
+              >
+            </div>
+
+            <!-- Stacked Gear and RPM for Mobile, Inline for Desktop -->
+            <div
+              class="flex flex-col sm:flex-row items-end sm:items-center justify-end sm:gap-2 mt-0.5 sm:mt-1 text-[8px] sm:text-[10px]"
+            >
+              <div class="flex items-center gap-1">
+                <span class="text-slate-400 font-semibold">GEAR</span>
+                <span id="hud-gear" class="font-digital font-bold text-cyan-400"
+                  >D1</span
+                >
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-slate-400 font-semibold">RPM</span>
+                <span id="hud-rpm" class="font-digital font-bold text-rose-400"
+                  >800</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="w-full mt-1 pt-1 border-t border-slate-700/50 flex items-center justify-end gap-1 text-right"
+          >
+            <div class="w-1.5 h-1.5 rounded-full bg-cyan-400 live-dot"></div>
+            <span
+              id="hud-env-status"
+              class="text-[8px] sm:text-[9px] font-semibold text-slate-300 truncate max-w-[90px] sm:max-w-[150px]"
+            >
+              Syncing...
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Anti-Cheating Lane Warning Banner -->
+      <div
+        id="lane-warning"
+        class="self-center glass-card rounded-xl px-3 py-1.5 text-center max-w-xs border border-amber-500/80 hidden transition-all duration-150 my-auto"
+      >
+        <div
+          class="font-digital text-[10px] sm:text-xs font-black text-amber-400 flex items-center justify-center gap-1"
+        >
+          <svg
+            class="w-3.5 h-3.5 animate-bounce text-amber-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            ></path>
+          </svg>
+          LANE STRADDLE PENALTY
+        </div>
+        <p class="text-[9px] text-slate-300 mt-0.5">
+          Driving on divider lines degrades integrity!
+        </p>
+      </div>
+
+      <!-- Bottom Controls Wrapper -->
+      <div class="flex flex-col items-center w-full gap-2 pb-1">
+        <!-- Mobile-Optimized FM Radio Stereo Panel -->
+        <div
+          class="glass-card rounded-xl p-1.5 sm:p-2 border-b-2 border-emerald-500/50 flex flex-col items-center w-full max-w-[280px] sm:max-w-xs interactive"
+        >
+          <div class="w-full flex justify-between items-center mb-1 px-1">
+            <div class="flex items-center gap-1">
+              <div
+                class="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot"
+              ></div>
+              <span class="text-[8px] font-bold font-digital text-slate-300"
+                >FM STEREO TUNER</span
+              >
+            </div>
+            <span
+              id="radio-station"
+              class="text-[8px] font-digital text-emerald-400 font-bold truncate max-w-[140px]"
+              >104.2 FM - SYNTHWAVE</span
+            >
+          </div>
+
+          <div
+            class="w-full h-6 sm:h-7 bg-slate-950/90 rounded p-1 flex items-center justify-between border border-slate-800 relative overflow-hidden mb-1"
+          >
+            <div class="scanlines absolute inset-0 pointer-events-none"></div>
+            <div
+              id="equalizer-bars"
+              class="flex items-end gap-0.5 h-full w-12 sm:w-16"
+            >
+              <div
+                class="bg-emerald-500 w-1 rounded-t transition-all duration-75"
+                style="height: 40%"
+              ></div>
+              <div
+                class="bg-emerald-400 w-1 rounded-t transition-all duration-75"
+                style="height: 80%"
+              ></div>
+              <div
+                class="bg-emerald-500 w-1 rounded-t transition-all duration-75"
+                style="height: 60%"
+              ></div>
+              <div
+                class="bg-emerald-300 w-1 rounded-t transition-all duration-75"
+                style="height: 100%"
+              ></div>
+              <div
+                class="bg-emerald-500 w-1 rounded-t transition-all duration-75"
+                style="height: 30%"
+              ></div>
+            </div>
+            <div
+              id="radio-track"
+              class="text-[8px] sm:text-[9px] font-digital text-emerald-300 truncate max-w-[130px] sm:max-w-[150px]"
+            >
+              NEON HIGHWAY (LIVE)
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between w-full px-1 gap-1">
+            <button
+              id="radio-prev"
+              class="glass-btn px-2 py-1 rounded text-[8px] font-bold text-slate-300"
+            >
+              PREV
+            </button>
+            <button
+              id="radio-play"
+              class="glass-btn px-3 py-1 rounded text-[8px] sm:text-[9px] font-bold text-emerald-400 border-emerald-500/40"
+            >
+              PLAY / MUTE
+            </button>
+            <button
+              id="radio-next"
+              class="glass-btn px-2 py-1 rounded text-[8px] font-bold text-slate-300"
+            >
+              NEXT
+            </button>
+          </div>
+        </div>
+
+        <!-- Bottom Touch Drive Controls -->
+        <div class="flex justify-between items-end w-full gap-2">
+          <!-- Bottom Left: Steering Buttons -->
+          <div class="flex items-center gap-1.5 sm:gap-3 interactive">
+            <button
+              id="btn-left"
+              class="glass-btn w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex flex-col items-center justify-center text-slate-200 border-l-4 border-l-cyan-400"
+            >
+              <svg
+                class="w-5 h-5 sm:w-7 sm:h-7"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M15 19l-7-7 7-7"
+                ></path>
+              </svg>
+              <span
+                class="text-[7px] sm:text-[8px] font-bold tracking-widest text-slate-400"
+                >LEFT</span
+              >
+            </button>
+
+            <button
+              id="btn-right"
+              class="glass-btn w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex flex-col items-center justify-center text-slate-200 border-r-4 border-r-cyan-400"
+            >
+              <svg
+                class="w-5 h-5 sm:w-7 sm:h-7"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M9 5l7 7-7 7"
+                ></path>
+              </svg>
+              <span
+                class="text-[7px] sm:text-[8px] font-bold tracking-widest text-slate-400"
+                >RIGHT</span
+              >
+            </button>
+          </div>
+
+          <!-- Bottom Right: Pedals -->
+          <div class="flex items-center gap-1.5 sm:gap-3 interactive">
+            <button
+              id="btn-brake"
+              class="glass-btn w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex flex-col items-center justify-center text-rose-400 border-b-4 border-b-rose-500"
+            >
+              <svg
+                class="w-5 h-5 sm:w-6 sm:h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                ></path>
+              </svg>
+              <span
+                class="text-[7px] sm:text-[8px] font-bold tracking-widest text-slate-400"
+                >BRAKE</span
+              >
+            </button>
+
+            <button
+              id="btn-accel"
+              class="glass-btn w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex flex-col items-center justify-center text-emerald-400 border-t-4 border-t-emerald-400"
+            >
+              <svg
+                class="w-5 h-5 sm:w-6 sm:h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M5 10l7-7m0 0l7 7m-7-7v18"
+                ></path>
+              </svg>
+              <span
+                class="text-[7px] sm:text-[8px] font-bold tracking-widest text-slate-400"
+                >DRIVE</span
+              >
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- End Game Modal Summary -->
+    <div
+      id="end-modal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl hidden"
+    >
+      <div
+        class="glass-card rounded-3xl p-5 sm:p-8 max-w-sm sm:max-w-md w-full border-2 border-slate-700/80 shadow-2xl text-center relative overflow-hidden"
+      >
+        <div
+          id="modal-badge"
+          class="inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-rose-500/20 text-rose-400 border border-rose-500/40"
+        >
+          CRASHED
+        </div>
+
+        <h2
+          id="modal-title"
+          class="font-digital text-xl sm:text-3xl font-black text-rose-500 mb-1"
+        >
+          VEHICLE DESTROYED
+        </h2>
+
+        <p id="modal-subtitle" class="text-xs text-slate-300 mb-5">
+          Structural integrity reached 0% before completing 11.8 KM.
+        </p>
+
+        <div class="grid grid-cols-2 gap-2 mb-5 text-left">
+          <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <span class="text-[8px] text-slate-400 uppercase font-bold block"
+              >Distance Driven</span
+            >
+            <span
+              id="summary-distance"
+              class="font-digital text-sm sm:text-base font-bold text-cyan-400"
+              >0.0 KM</span
+            >
+          </div>
+
+          <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <span class="text-[8px] text-slate-400 uppercase font-bold block"
+              >Elapsed Time</span
+            >
+            <span
+              id="summary-time"
+              class="font-digital text-sm sm:text-base font-bold text-amber-400"
+              >00:00.0</span
+            >
+          </div>
+
+          <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <span class="text-[8px] text-slate-400 uppercase font-bold block"
+              >Top Speed</span
+            >
+            <span
+              id="summary-top-speed"
+              class="font-digital text-sm sm:text-base font-bold text-emerald-400"
+              >0 KM/H</span
+            >
+          </div>
+
+          <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <span class="text-[8px] text-slate-400 uppercase font-bold block"
+              >Total Collisions</span
+            >
+            <span
+              id="summary-collisions"
+              class="font-digital text-sm sm:text-base font-bold text-rose-400"
+              >0</span
+            >
+          </div>
+        </div>
+
+        <button
+          id="modal-restart-btn"
+          class="interactive w-full glass-btn py-3 rounded-xl text-xs font-bold text-white uppercase tracking-wider bg-blue-600/40 hover:bg-blue-600/60 border-blue-400/50"
+        >
+          Try Again
+        </button>
+        <div style="margin-top: 6px"></div>
+        <a
+          href="index.html"
+          class="p-3 my-2 bg-rose-500/20 text-rose-400 border border-rose-500/40 font-digital font-bold text-xs rounded-lg uppercase tracking-wider"
+        >
+          Give Up
+        </a>
+      </div>
+    </div>
+
+    <script>
+      const TARGET_TRIP_KM = 11.8;
+      const TARGET_TRIP_METERS = TARGET_TRIP_KM * 1000;
+
+      const CONFIG = {
+        lanes: [-3.8, 0, 3.8],
+        linePositions: [-1.9, 1.9],
+        maxSpeed: 195,
+        acceleration: 70,
+        braking: 125,
+        naturalDecel: 22,
+        steeringSpeed: 6.8,
+        trafficCount: 14,
+        segmentLength: 50,
+      };
+
+      const state = {
+        speed: 0,
+        maxRecordedSpeed: 0,
+        distance: 0,
+        integrity: 100,
+        collisions: 0,
+        vehicleX: 0,
+        steeringAngle: 0,
+        isAccelerating: false,
+        isBraking: false,
+        isSteeringLeft: false,
+        isSteeringRight: false,
+        isCrashed: false,
+        isFinished: false,
+        startTime: null,
+        elapsedTime: 0,
+        isStraddling: false,
+        straddleTimer: 0,
+        weatherCondition: "Clear",
+        timeOfDay: "Day",
+        engineRpm: 800,
+        gear: 1,
+      };
+
+      // Web Audio Synthesizer Engine
+      class AudioSystem {
+        constructor() {
+          this.ctx = null;
+          this.engineOsc = null;
+          this.engineGain = null;
+          this.radioStationIndex = 0;
+          this.isPlayingRadio = false;
+          this.radioTimer = null;
+
+          this.stations = [
+            {
+              name: "104.2 FM - SYNTHWAVE",
+              track: "NEON HIGHWAY (SYNTH)",
+              tempo: 120,
+              freqBase: 220,
+            },
+            {
+              name: "98.5 FM - LO-FI DRIVE",
+              track: "MIDNIGHT CRUISE",
+              tempo: 90,
+              freqBase: 174,
+            },
+            {
+              name: "108.0 FM - AMBIENT CHILL",
+              track: "DISTANT HORIZON",
+              tempo: 70,
+              freqBase: 130,
+            },
+          ];
+        }
+
+        init() {
+          if (this.ctx) return;
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+
+          this.engineOsc = this.ctx.createOscillator();
+          this.engineGain = this.ctx.createGain();
+
+          this.engineOsc.type = "sawtooth";
+          this.engineOsc.frequency.setValueAtTime(40, this.ctx.currentTime);
+          this.engineGain.gain.setValueAtTime(0.035, this.ctx.currentTime);
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.setValueAtTime(360, this.ctx.currentTime);
+
+          this.engineOsc.connect(filter);
+          filter.connect(this.engineGain);
+          this.engineGain.connect(this.ctx.destination);
+
+          this.engineOsc.start();
+        }
+
+        updateEngineSound(speed, rpm) {
+          if (!this.ctx) return;
+          const pitch =
+            35 + (rpm / 8000) * 160 + (speed / CONFIG.maxSpeed) * 30;
+          this.engineOsc.frequency.setTargetAtTime(
+            pitch,
+            this.ctx.currentTime,
+            0.1,
+          );
+        }
+
+        playScreech() {
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(850, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(
+            180,
+            this.ctx.currentTime + 0.3,
+          );
+
+          gain.gain.setValueAtTime(0.07, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.3);
+        }
+
+        playCrashSound() {
+          if (!this.ctx) return;
+          const bufferSize = this.ctx.sampleRate * 0.45;
+          const buffer = this.ctx.createBuffer(
+            1,
+            bufferSize,
+            this.ctx.sampleRate,
+          );
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.setValueAtTime(1100, this.ctx.currentTime);
+          filter.frequency.linearRampToValueAtTime(
+            120,
+            this.ctx.currentTime + 0.45,
+          );
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            this.ctx.currentTime + 0.45,
+          );
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          noise.start();
+        }
+
+        toggleRadio() {
+          this.init();
+          this.isPlayingRadio = !this.isPlayingRadio;
+          if (this.isPlayingRadio) {
+            this.startRadioLoop();
+          } else {
+            if (this.radioTimer) clearInterval(this.radioTimer);
+          }
+          return this.isPlayingRadio;
+        }
+
+        nextStation(direction = 1) {
+          this.radioStationIndex =
+            (this.radioStationIndex + direction + this.stations.length) %
+            this.stations.length;
+          if (this.isPlayingRadio) {
+            this.startRadioLoop();
+          }
+          return this.stations[this.radioStationIndex];
+        }
+
+        startRadioLoop() {
+          if (this.radioTimer) clearInterval(this.radioTimer);
+
+          const station = this.stations[this.radioStationIndex];
+          const notes = [0, 3, 5, 7, 10, 12, 15];
+          let step = 0;
+          const intervalMs = ((60 / station.tempo) * 1000) / 2;
+
+          this.radioTimer = setInterval(() => {
+            if (!this.isPlayingRadio || !this.ctx) return;
+
+            const noteOffset = notes[step % notes.length];
+            const freq = station.freqBase * Math.pow(2, noteOffset / 12);
+
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = step % 4 === 0 ? "square" : "sine";
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+            gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(
+              0.001,
+              this.ctx.currentTime + intervalMs / 1000,
+            );
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start();
+            osc.stop(this.ctx.currentTime + intervalMs / 1000);
+
+            step++;
+          }, intervalMs);
+        }
+      }
+
+      const audioSystem = new AudioSystem();
+
+      const container = document.getElementById("canvas-container");
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x060913);
+      scene.fog = new THREE.FogExp2(0x060913, 0.015);
+
+      // Primary Driver Camera - Anchored in seat POV
+      const camera = new THREE.PerspectiveCamera(
+        65,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        500,
+      );
+      camera.position.set(0, 1.25, 0.2);
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        powerPreference: "high-performance",
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      container.appendChild(renderer.domElement);
+
+      // Rear Mirror Render Target & Rear Camera
+      const mirrorRenderTarget = new THREE.WebGLRenderTarget(512, 128, {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBFormat,
+      });
+
+      const rearCamera = new THREE.PerspectiveCamera(60, 512 / 128, 0.1, 200);
+      rearCamera.position.set(0, 1.3, -0.4);
+      rearCamera.rotation.y = Math.PI;
+
+      // World Lighting
+      const ambientLight = new THREE.AmbientLight(0xddeeff, 0.6);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(0xfff7ed, 1.2);
+      sunLight.position.set(20, 50, -30);
+      scene.add(sunLight);
+
+      const cabinLight = new THREE.PointLight(0x38bdf8, 0.8, 3);
+      cabinLight.position.set(0, 1.3, -0.2);
+      scene.add(cabinLight);
+
+      const headlightLeft = new THREE.SpotLight(
+        0xffffff,
+        2.5,
+        90,
+        Math.PI / 5,
+        0.4,
+        1,
+      );
+      headlightLeft.position.set(-0.8, 0.7, -1.5);
+      headlightLeft.target.position.set(-0.8, 0, -50);
+      scene.add(headlightLeft);
+      scene.add(headlightLeft.target);
+
+      const headlightRight = new THREE.SpotLight(
+        0xffffff,
+        2.5,
+        90,
+        Math.PI / 5,
+        0.4,
+        1,
+      );
+      headlightRight.position.set(0.8, 0.7, -1.5);
+      headlightRight.target.position.set(0.8, 0, -50);
+      scene.add(headlightRight);
+      scene.add(headlightRight.target);
+
+      const cockpitGroup = new THREE.Group();
+      scene.add(cockpitGroup);
+
+      // Dashboard
+      const dashGeo = new THREE.BoxGeometry(2.4, 0.55, 0.8);
+      const dashMat = new THREE.MeshStandardMaterial({
+        color: 0x111622,
+        roughness: 0.8,
+      });
+      const dashboard = new THREE.Mesh(dashGeo, dashMat);
+      dashboard.position.set(0, 0.8, -0.6);
+      cockpitGroup.add(dashboard);
+
+      // Center Console
+      const consoleGeo = new THREE.BoxGeometry(0.6, 0.45, 0.3);
+      const consoleMat = new THREE.MeshStandardMaterial({
+        color: 0x0f172a,
+        roughness: 0.5,
+      });
+      const centerConsole = new THREE.Mesh(consoleGeo, consoleMat);
+      centerConsole.position.set(0, 0.65, -0.5);
+      cockpitGroup.add(centerConsole);
+
+      // Rear Mirror Frame & Live Screen
+      const mirrorFrameGeo = new THREE.BoxGeometry(0.52, 0.16, 0.04);
+      const mirrorFrameMat = new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        roughness: 0.3,
+      });
+      const mirrorFrame = new THREE.Mesh(mirrorFrameGeo, mirrorFrameMat);
+      mirrorFrame.position.set(0, 1.58, -0.45);
+      cockpitGroup.add(mirrorFrame);
+
+      const mirrorDisplayGeo = new THREE.PlaneGeometry(0.48, 0.12);
+      const mirrorDisplayMat = new THREE.MeshBasicMaterial({
+        map: mirrorRenderTarget.texture,
+      });
+      const mirrorDisplay = new THREE.Mesh(mirrorDisplayGeo, mirrorDisplayMat);
+      mirrorDisplay.position.set(0, 1.58, -0.42);
+      cockpitGroup.add(mirrorDisplay);
+
+      // Animated Steering Wheel Assembly
+      const wheelGroup = new THREE.Group();
+      wheelGroup.position.set(-0.42, 0.88, -0.32);
+
+      const rimGeo = new THREE.TorusGeometry(0.22, 0.03, 16, 32);
+      const wheelMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        roughness: 0.4,
+      });
+      const rim = new THREE.Mesh(rimGeo, wheelMat);
+      wheelGroup.add(rim);
+
+      const hubGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.04, 16);
+      hubGeo.rotateX(Math.PI / 2);
+      const hub = new THREE.Mesh(hubGeo, wheelMat);
+      wheelGroup.add(hub);
+
+      const spokeGeo = new THREE.BoxGeometry(0.38, 0.03, 0.02);
+      const spoke1 = new THREE.Mesh(spokeGeo, wheelMat);
+      wheelGroup.add(spoke1);
+
+      const spokeVerticalGeo = new THREE.BoxGeometry(0.03, 0.2, 0.02);
+      const spoke2 = new THREE.Mesh(spokeVerticalGeo, wheelMat);
+      spoke2.position.set(0, -0.1, 0);
+      wheelGroup.add(spoke2);
+
+      cockpitGroup.add(wheelGroup);
+
+      // Cabin Pillars
+      const pillarMat = new THREE.MeshStandardMaterial({
+        color: 0x090d16,
+        roughness: 0.9,
+      });
+      const pillarGeo = new THREE.BoxGeometry(0.12, 1.4, 0.12);
+
+      const pillarLeft = new THREE.Mesh(pillarGeo, pillarMat);
+      pillarLeft.position.set(-1.15, 1.4, -0.3);
+      pillarLeft.rotation.z = -0.35;
+      cockpitGroup.add(pillarLeft);
+
+      const pillarRight = new THREE.Mesh(pillarGeo, pillarMat);
+      pillarRight.position.set(1.15, 1.4, -0.3);
+      pillarRight.rotation.z = 0.35;
+      cockpitGroup.add(pillarRight);
+
+      // Weather Particle System
+      const particleCount = 500;
+      const particleGeo = new THREE.BufferGeometry();
+      const particlePositions = new Float32Array(particleCount * 3);
+
+      for (let i = 0; i < particleCount * 3; i += 3) {
+        particlePositions[i] = (Math.random() - 0.5) * 40;
+        particlePositions[i + 1] = Math.random() * 20;
+        particlePositions[i + 2] = (Math.random() - 0.5) * 100;
+      }
+
+      particleGeo.setAttribute(
+        "position",
+        new THREE.BufferAttribute(particlePositions, 3),
+      );
+      const particleMat = new THREE.PointsMaterial({
+        color: 0xcccccc,
+        size: 0.15,
+        transparent: true,
+        opacity: 0.5,
+      });
+
+      const weatherParticles = new THREE.Points(particleGeo, particleMat);
+      scene.add(weatherParticles);
+
+      const roadGroup = new THREE.Group();
+      scene.add(roadGroup);
+
+      const roadSegments = [];
+      const totalSegments = 8;
+      const streetLights = [];
+
+      function createRoadSegment(zPos) {
+        const segment = new THREE.Group();
+        segment.position.z = zPos;
+
+        const roadGeo = new THREE.PlaneGeometry(12, CONFIG.segmentLength);
+        const roadMat = new THREE.MeshStandardMaterial({
+          color: 0x11131a,
+          roughness: 0.9,
+        });
+        const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+        roadMesh.rotation.x = -Math.PI / 2;
+        segment.add(roadMesh);
+
+        const shoulderGeo = new THREE.PlaneGeometry(20, CONFIG.segmentLength);
+        const shoulderMat = new THREE.MeshStandardMaterial({
+          color: 0x090c10,
+          roughness: 1.0,
+        });
+
+        const shoulderL = new THREE.Mesh(shoulderGeo, shoulderMat);
+        shoulderL.position.set(-16, -0.01, 0);
+        shoulderL.rotation.x = -Math.PI / 2;
+        segment.add(shoulderL);
+
+        const shoulderR = new THREE.Mesh(shoulderGeo, shoulderMat);
+        shoulderR.position.set(16, -0.01, 0);
+        shoulderR.rotation.x = -Math.PI / 2;
+        segment.add(shoulderR);
+
+        const lineMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0 });
+        const yellowLineMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+
+        const outerLineGeo = new THREE.BoxGeometry(
+          0.15,
+          0.02,
+          CONFIG.segmentLength,
+        );
+        const lineL = new THREE.Mesh(outerLineGeo, yellowLineMat);
+        lineL.position.set(-5.6, 0.01, 0);
+        segment.add(lineL);
+
+        const lineR = new THREE.Mesh(outerLineGeo, yellowLineMat);
+        lineR.position.set(5.6, 0.01, 0);
+        segment.add(lineR);
+
+        for (
+          let z = -CONFIG.segmentLength / 2;
+          z < CONFIG.segmentLength / 2;
+          z += 6
+        ) {
+          const dashGeo = new THREE.BoxGeometry(0.12, 0.02, 3);
+          const dash1 = new THREE.Mesh(dashGeo, lineMat);
+          dash1.position.set(-1.9, 0.01, z);
+          segment.add(dash1);
+
+          const dash2 = new THREE.Mesh(dashGeo, lineMat);
+          dash2.position.set(1.9, 0.01, z);
+          segment.add(dash2);
+        }
+
+        for (
+          let z = -CONFIG.segmentLength / 2;
+          z < CONFIG.segmentLength / 2;
+          z += 25
+        ) {
+          const poleGeo = new THREE.CylinderGeometry(0.08, 0.12, 7);
+          const poleMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+          const pole = new THREE.Mesh(poleGeo, poleMat);
+          pole.position.set(-7.5, 3.5, z);
+          segment.add(pole);
+
+          const lightGeo = new THREE.SphereGeometry(0.25, 8, 8);
+          const lightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+          const bulb = new THREE.Mesh(lightGeo, lightMat);
+          bulb.position.set(-7.0, 6.8, z);
+          segment.add(bulb);
+
+          streetLights.push(bulb);
+        }
+
+        roadGroup.add(segment);
+        return segment;
+      }
+
+      for (let i = 0; i < totalSegments; i++) {
+        roadSegments.push(createRoadSegment(-i * CONFIG.segmentLength));
+      }
+
+      const trafficVehicles = [];
+      const carColors = [
+        0xef4444, 0x3b82f6, 0x10b981, 0xf59e0b, 0x8b5cf6, 0xec4899, 0x64748b,
+      ];
+
+      function createTrafficCar() {
+        const carGroup = new THREE.Group();
+
+        const bodyGeo = new THREE.BoxGeometry(1.7, 0.7, 3.6);
+        const color = carColors[Math.floor(Math.random() * carColors.length)];
+        const bodyMat = new THREE.MeshStandardMaterial({
+          color: color,
+          roughness: 0.3,
+          metalness: 0.6,
+        });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 0.55;
+        carGroup.add(body);
+
+        const cabinGeo = new THREE.BoxGeometry(1.4, 0.55, 1.8);
+        const cabinMat = new THREE.MeshStandardMaterial({
+          color: 0x0f172a,
+          roughness: 0.2,
+        });
+        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+        cabin.position.set(0, 1.0, -0.2);
+        carGroup.add(cabin);
+
+        const lightGeo = new THREE.BoxGeometry(0.35, 0.12, 0.05);
+        const tailMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const headMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+        const tailL = new THREE.Mesh(lightGeo, tailMat);
+        tailL.position.set(-0.6, 0.6, 1.81);
+        carGroup.add(tailL);
+
+        const tailR = new THREE.Mesh(lightGeo, tailMat);
+        tailR.position.set(0.6, 0.6, 1.81);
+        carGroup.add(tailR);
+
+        const headL = new THREE.Mesh(lightGeo, headMat);
+        headL.position.set(-0.6, 0.55, -1.81);
+        carGroup.add(headL);
+
+        const headR = new THREE.Mesh(lightGeo, headMat);
+        headR.position.set(0.6, 0.55, -1.81);
+        carGroup.add(headR);
+
+        // Add car mesh directly to highway roadGroup so it moves in world space!
+        roadGroup.add(carGroup);
+
+        return {
+          mesh: carGroup,
+          laneIndex: Math.floor(Math.random() * 3),
+          targetLaneIndex: Math.floor(Math.random() * 3),
+          worldX: CONFIG.lanes[Math.floor(Math.random() * 3)],
+          speed: 25 + Math.random() * 45,
+          z: -30 - Math.random() * 200,
+          laneChangeTimer: Math.random() * 6 + 3,
+        };
+      }
+
+      for (let i = 0; i < CONFIG.trafficCount; i++) {
+        const car = createTrafficCar();
+        car.worldX = CONFIG.lanes[car.laneIndex];
+        car.mesh.position.set(car.worldX, 0, car.z);
+        trafficVehicles.push(car);
+      }
+
+      function respawnTraffic(car) {
+        car.laneIndex = Math.floor(Math.random() * 3);
+        car.targetLaneIndex = car.laneIndex;
+        car.worldX = CONFIG.lanes[car.laneIndex];
+        car.z = -180 - Math.random() * 120;
+        car.speed = 25 + Math.random() * 50;
+        car.mesh.position.set(car.worldX, 0, car.z);
+      }
+
+      async function initRealTimeWeather() {
+        let lat = 40.7128,
+          lon = -74.006;
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) =>
+              fetchWeatherData(pos.coords.latitude, pos.coords.longitude),
+            () => fetchWeatherData(lat, lon),
+          );
+        } else {
+          fetchWeatherData(lat, lon);
+        }
+      }
+
+      async function fetchWeatherData(lat, lon) {
+        const envText = document.getElementById("hud-env-status");
+
+        try {
+          const response = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
+          );
+          const data = await response.json();
+
+          if (data && data.current_weather) {
+            const code = data.current_weather.weathercode;
+
+            const hour = new Date().getHours();
+            if (hour >= 5 && hour < 8) state.timeOfDay = "Morning";
+            else if (hour >= 8 && hour < 17) state.timeOfDay = "Day";
+            else if (hour >= 17 && hour < 20) state.timeOfDay = "Dusk";
+            else state.timeOfDay = "Night";
+
+            if (code === 0) state.weatherCondition = "Clear";
+            else if ([1, 2, 3].includes(code))
+              state.weatherCondition = "Clouds";
+            else if ([51, 61, 63, 80].includes(code))
+              state.weatherCondition = "Rain";
+            else if ([71, 73, 75, 85].includes(code))
+              state.weatherCondition = "Snow";
+            else if ([45, 48].includes(code)) state.weatherCondition = "Fog";
+
+            envText.innerText = `${state.weatherCondition} • ${state.timeOfDay}`;
+            applyEnvironmentTheme();
+          }
+        } catch (err) {
+          envText.innerText = "Clear • Day";
+        }
+      }
+
+      function applyEnvironmentTheme() {
+        let skyColor = 0x060913;
+        let fogDensity = 0.015;
+        let sunIntensity = 0.3;
+
+        if (state.timeOfDay === "Morning") {
+          skyColor = 0xfdba74;
+          sunIntensity = 0.8;
+        } else if (state.timeOfDay === "Day") {
+          skyColor = 0x38bdf8;
+          sunIntensity = 1.3;
+        } else if (state.timeOfDay === "Dusk") {
+          skyColor = 0x9333ea;
+          sunIntensity = 0.5;
+        } else {
+          skyColor = 0x030712;
+          sunIntensity = 0.1;
+        }
+
+        if (state.weatherCondition === "Fog") fogDensity = 0.04;
+        else if (["Rain", "Snow"].includes(state.weatherCondition))
+          fogDensity = 0.025;
+
+        scene.background.setHex(skyColor);
+        scene.fog.color.setHex(skyColor);
+        scene.fog.density = fogDensity;
+        sunLight.intensity = sunIntensity;
+
+        const needLights =
+          state.timeOfDay === "Night" || state.timeOfDay === "Dusk";
+        headlightLeft.intensity = needLights ? 2.5 : 0;
+        headlightRight.intensity = needLights ? 2.5 : 0;
+        streetLights.forEach((light) =>
+          light.material.color.setHex(needLights ? 0xfef08a : 0x475569),
+        );
+      }
+
+      const btnLeft = document.getElementById("btn-left");
+      const btnRight = document.getElementById("btn-right");
+      const btnAccel = document.getElementById("btn-accel");
+      const btnBrake = document.getElementById("btn-brake");
+      const modalRestartBtn = document.getElementById("modal-restart-btn");
+
+      const bindTouchControls = (element, onPress, onRelease) => {
+        const handlePress = (e) => {
+          if (e.cancelable) e.preventDefault();
+          audioSystem.init();
+          element.classList.add("active");
+          onPress();
+        };
+
+        const handleRelease = (e) => {
+          if (e.cancelable) e.preventDefault();
+          element.classList.remove("active");
+          onRelease();
+        };
+
+        element.addEventListener("touchstart", handlePress, { passive: false });
+        element.addEventListener("touchend", handleRelease, { passive: false });
+        element.addEventListener("touchcancel", handleRelease, {
+          passive: false,
+        });
+        element.addEventListener("mousedown", handlePress);
+        element.addEventListener("mouseup", handleRelease);
+        element.addEventListener("mouseleave", handleRelease);
+      };
+
+      bindTouchControls(
+        btnLeft,
+        () => (state.isSteeringLeft = true),
+        () => (state.isSteeringLeft = false),
+      );
+      bindTouchControls(
+        btnRight,
+        () => (state.isSteeringRight = true),
+        () => (state.isSteeringRight = false),
+      );
+      bindTouchControls(
+        btnAccel,
+        () => (state.isAccelerating = true),
+        () => (state.isAccelerating = false),
+      );
+      bindTouchControls(
+        btnBrake,
+        () => {
+          state.isBraking = true;
+          if (state.speed > 30) audioSystem.playScreech();
+        },
+        () => (state.isBraking = false),
+      );
+
+      window.addEventListener("keydown", (e) => {
+        audioSystem.init();
+        if (["ArrowLeft", "a", "A"].includes(e.key))
+          state.isSteeringLeft = true;
+        if (["ArrowRight", "d", "D"].includes(e.key))
+          state.isSteeringRight = true;
+        if (["ArrowUp", "w", "W"].includes(e.key)) state.isAccelerating = true;
+        if (["ArrowDown", "s", "S"].includes(e.key)) {
+          if (!state.isBraking && state.speed > 30) audioSystem.playScreech();
+          state.isBraking = true;
+        }
+      });
+
+      window.addEventListener("keyup", (e) => {
+        if (["ArrowLeft", "a", "A"].includes(e.key))
+          state.isSteeringLeft = false;
+        if (["ArrowRight", "d", "D"].includes(e.key))
+          state.isSteeringRight = false;
+        if (["ArrowUp", "w", "W"].includes(e.key)) state.isAccelerating = false;
+        if (["ArrowDown", "s", "S"].includes(e.key)) state.isBraking = false;
+      });
+
+      // FM Radio Control Bindings
+      const radioPlayBtn = document.getElementById("radio-play");
+      const radioPrevBtn = document.getElementById("radio-prev");
+      const radioNextBtn = document.getElementById("radio-next");
+
+      radioPlayBtn.addEventListener("click", () => {
+        const playing = audioSystem.toggleRadio();
+        radioPlayBtn.classList.toggle("text-emerald-400", playing);
+        radioPlayBtn.classList.toggle("text-slate-400", !playing);
+      });
+
+      const updateRadioUI = (station) => {
+        document.getElementById("radio-station").innerText = station.name;
+        document.getElementById("radio-track").innerText = station.track;
+      };
+
+      radioPrevBtn.addEventListener("click", () =>
+        updateRadioUI(audioSystem.nextStation(-1)),
+      );
+      radioNextBtn.addEventListener("click", () =>
+        updateRadioUI(audioSystem.nextStation(1)),
+      );
+
+      modalRestartBtn.addEventListener("click", () => resetGameRun());
+
+      function resetGameRun() {
+        state.isCrashed = false;
+        state.isFinished = false;
+        state.speed = 0;
+        state.maxRecordedSpeed = 0;
+        state.distance = 0;
+        state.integrity = 100;
+        state.collisions = 0;
+        state.vehicleX = 0;
+        state.startTime = null;
+        state.elapsedTime = 0;
+
+        roadGroup.position.x = 0;
+        document
+          .getElementById("canvas-container")
+          .classList.remove("shake-viewport");
+        document.getElementById("end-modal").classList.add("hidden");
+      }
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      const clock = new THREE.Clock();
+
+      function triggerGameOver(cause) {
+        state.isCrashed = true;
+        audioSystem.playCrashSound();
+
+        document.getElementById("modal-badge").innerText = "RUN FAILED";
+        document.getElementById("modal-badge").className =
+          "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-rose-500/20 text-rose-400 border border-rose-500/40";
+
+        document.getElementById("modal-title").innerText = "VEHICLE DESTROYED";
+        document.getElementById("modal-title").className =
+          "font-digital text-xl sm:text-3xl font-black text-rose-500 mb-1";
+        document.getElementById("modal-subtitle").innerText = cause;
+
+        populateSummaryStats();
+        document.getElementById("end-modal").classList.remove("hidden");
+      }
+
+      function triggerVictory() {
+        state.isFinished = true;
+
+        document.getElementById("modal-badge").innerText = "RUN COMPLETED";
+        document.getElementById("modal-badge").className =
+          "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+
+        document.getElementById("modal-title").innerText =
+          "DESTINATION REACHED";
+        document.getElementById("modal-title").className =
+          "font-digital text-xl sm:text-3xl font-black text-emerald-400 mb-1";
+        document.getElementById("modal-subtitle").innerText =
+          "Congratulations! You completed the 11.8 KM drive!";
+
+        populateSummaryStats();
+        document.getElementById("end-modal").classList.remove("hidden");
+      }
+
+      function populateSummaryStats() {
+        const mins = Math.floor(state.elapsedTime / 60);
+        const secs = (state.elapsedTime % 60).toFixed(1);
+
+        document.getElementById("summary-distance").innerText =
+          `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
+        document.getElementById("summary-time").innerText =
+          `${String(mins).padStart(2, "0")}:${String(secs).padStart(4, "0")}`;
+        document.getElementById("summary-top-speed").innerText =
+          `${Math.floor(state.maxRecordedSpeed)} KM/H`;
+        document.getElementById("summary-collisions").innerText =
+          state.collisions;
+      }
+
+      function onCollision() {
+        audioSystem.playCrashSound();
+
+        // Reduce integrity by exactly 3% per crash
+        state.integrity -= 3;
+        state.collisions += 1;
+
+        const containerEl = document.getElementById("canvas-container");
+        containerEl.classList.add("shake-viewport");
+        setTimeout(() => containerEl.classList.remove("shake-viewport"), 350);
+
+        if (state.integrity <= 0) {
+          state.integrity = 0;
+          triggerGameOver(
+            "Vehicle structural integrity reached 0% after multiple collisions.",
+          );
+        }
+      }
+
+      function checkLaneStraddled(delta) {
+        const onLine1 =
+          Math.abs(state.vehicleX - CONFIG.linePositions[0]) < 0.45;
+        const onLine2 =
+          Math.abs(state.vehicleX - CONFIG.linePositions[1]) < 0.45;
+
+        const warningBanner = document.getElementById("lane-warning");
+
+        if (onLine1 || onLine2) {
+          state.isStraddling = true;
+          warningBanner.classList.remove("hidden");
+
+          state.speed = Math.max(0, state.speed - 38 * delta);
+
+          state.straddleTimer += delta;
+          if (state.straddleTimer > 1.0) {
+            state.integrity = Math.max(0, state.integrity - 3);
+            state.straddleTimer = 0;
+            if (state.integrity === 0) {
+              triggerGameOver(
+                "Vehicle integrity destroyed by persistent lane straddling.",
+              );
+            }
+          }
+        } else {
+          state.isStraddling = false;
+          state.straddleTimer = 0;
+          warningBanner.classList.add("hidden");
+        }
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const delta = Math.min(clock.getDelta(), 0.1);
+
+        if (!state.isCrashed && !state.isFinished) {
+          if (state.speed > 1 && !state.startTime) {
+            state.startTime = Date.now();
+          }
+
+          if (state.startTime) {
+            state.elapsedTime = (Date.now() - state.startTime) / 1000;
+          }
+
+          // Acceleration & Brake Physics
+          if (state.isAccelerating) {
+            state.speed += CONFIG.acceleration * delta;
+          } else if (state.isBraking) {
+            state.speed -= CONFIG.braking * delta;
+          } else {
+            state.speed -= CONFIG.naturalDecel * delta;
+          }
+
+          state.speed = Math.max(0, Math.min(CONFIG.maxSpeed, state.speed));
+          if (state.speed > state.maxRecordedSpeed) {
+            state.maxRecordedSpeed = state.speed;
+          }
+
+          // Steering Physics
+          if (state.isSteeringLeft) {
+            state.vehicleX -= CONFIG.steeringSpeed * delta;
+            state.steeringAngle = THREE.MathUtils.lerp(
+              state.steeringAngle,
+              1.2,
+              delta * 8,
+            );
+          } else if (state.isSteeringRight) {
+            state.vehicleX += CONFIG.steeringSpeed * delta;
+            state.steeringAngle = THREE.MathUtils.lerp(
+              state.steeringAngle,
+              -1.2,
+              delta * 8,
+            );
+          } else {
+            state.steeringAngle = THREE.MathUtils.lerp(
+              state.steeringAngle,
+              0,
+              delta * 6,
+            );
+          }
+
+          state.vehicleX = Math.max(-5.2, Math.min(5.2, state.vehicleX));
+
+          checkLaneStraddled(delta);
+
+          // Distance & Goal Progression
+          const speedMPS = (state.speed * 1000) / 3600;
+          state.distance += speedMPS * delta;
+
+          if (state.distance >= TARGET_TRIP_METERS) {
+            state.distance = TARGET_TRIP_METERS;
+            triggerVictory();
+          }
+
+          // Audio Engine Update
+          state.engineRpm = Math.floor(
+            800 + (state.speed % 35) * 180 + state.speed * 15,
+          );
+          state.gear = Math.min(6, Math.floor(state.speed / 32) + 1);
+          audioSystem.updateEngineSound(state.speed, state.engineRpm);
+
+          // DRIVER POV STABILITY:
+          // Shift world x-position inverse to player steering so driver camera stays locked in cockpit
+          const targetWorldX = -state.vehicleX;
+          roadGroup.position.x = THREE.MathUtils.lerp(
+            roadGroup.position.x,
+            targetWorldX,
+            delta * 10,
+          );
+
+          // Cockpit Camera remains anchored inside cabin
+          const rumble = state.isStraddling ? (Math.random() - 0.5) * 0.04 : 0;
+          camera.position.x = rumble * 0.5;
+          camera.position.y = 1.25 + rumble;
+          camera.rotation.z = -state.steeringAngle * 0.015;
+          camera.rotation.y = -state.steeringAngle * 0.01;
+
+          wheelGroup.rotation.z = state.steeringAngle;
+
+          // Keep Rearview Camera aligned with driver seat
+          rearCamera.position.x = 0;
+          rearCamera.position.z = -0.4;
+
+          // Move Road Segments
+          roadSegments.forEach((segment) => {
+            segment.position.z += speedMPS * delta;
+            if (segment.position.z > 20) {
+              segment.position.z -= totalSegments * CONFIG.segmentLength;
+            }
+          });
+
+          // INDEPENDENT NPC TRAFFIC AI & MOVEMENT
+          trafficVehicles.forEach((car) => {
+            // Move forward relative to player speed MPS
+            const relativeSpeed = speedMPS - (car.speed * 1000) / 3600;
+            car.z += relativeSpeed * delta;
+
+            // Autonomous NPC lane changing AI logic
+            car.laneChangeTimer -= delta;
+            if (car.laneChangeTimer <= 0) {
+              car.laneChangeTimer = Math.random() * 8 + 4;
+              // 50% chance to switch lane
+              if (Math.random() > 0.5) {
+                const possibleLanes = [0, 1, 2].filter(
+                  (l) => l !== car.laneIndex,
+                );
+                car.targetLaneIndex =
+                  possibleLanes[
+                    Math.floor(Math.random() * possibleLanes.length)
+                  ];
+              }
+            }
+
+            // Smoothly move car to target lane X in world-space
+            const targetX = CONFIG.lanes[car.targetLaneIndex];
+            car.worldX = THREE.MathUtils.lerp(car.worldX, targetX, delta * 2.5);
+            if (Math.abs(car.worldX - targetX) < 0.1) {
+              car.laneIndex = car.targetLaneIndex;
+            }
+
+            // Position car mesh strictly inside world-space highway coordinates
+            car.mesh.position.set(car.worldX, 0, car.z);
+
+            // Respawn traffic when out of range
+            if (car.z > 15) {
+              respawnTraffic(car);
+            } else if (car.z < -220) {
+              car.z += 50;
+            }
+
+            // Collision detection against player's actual vehicle X position
+            const dz = Math.abs(car.z - 0);
+            const dx = Math.abs(car.worldX - state.vehicleX);
+
+            if (dz < 2.2 && dx < 1.4) {
+              onCollision();
+              car.z += 10;
+            }
+          });
+        }
+
+        // Rain / Weather Particle Animation
+        if (weatherParticles) {
+          const positions = weatherParticles.geometry.attributes.position.array;
+          for (let i = 1; i < particleCount * 3; i += 3) {
+            positions[i] -= delta * 12;
+            if (positions[i] < 0) positions[i] = 20;
+          }
+          weatherParticles.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // Render Rearview Mirror Texture First
+        cockpitGroup.visible = false;
+        renderer.setRenderTarget(mirrorRenderTarget);
+        renderer.render(scene, rearCamera);
+        renderer.setRenderTarget(null);
+        cockpitGroup.visible = true;
+
+        // Update Stable HUD Metrics
+        document.getElementById("hud-speed").innerText = Math.floor(
+          state.speed,
+        );
+        document.getElementById("hud-distance").innerText =
+          `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
+
+        const tripPct = Math.min(
+          100,
+          (state.distance / TARGET_TRIP_METERS) * 100,
+        );
+        document.getElementById("hud-progress-bar").style.width = tripPct + "%";
+
+        document.getElementById("hud-integrity-val").innerText =
+          `${state.integrity}%`;
+        document.getElementById("hud-integrity-bar").style.width =
+          `${state.integrity}%`;
+        document.getElementById("hud-integrity-bar").className =
+          state.integrity > 40
+            ? "bg-emerald-400 h-full transition-all"
+            : "bg-rose-500 h-full transition-all";
+
+        const mins = Math.floor(state.elapsedTime / 60);
+        const secs = (state.elapsedTime % 60).toFixed(1);
+        document.getElementById("hud-timer").innerText =
+          `${String(mins).padStart(2, "0")}:${String(secs).padStart(4, "0")}`;
+
+        document.getElementById("hud-gear").innerText = `D${state.gear}`;
+        document.getElementById("hud-rpm").innerText = state.engineRpm;
+
+        if (audioSystem.isPlayingRadio) {
+          const bars = document.querySelectorAll("#equalizer-bars div");
+          bars.forEach((bar) => {
+            bar.style.height = 20 + Math.random() * 80 + "%";
+          });
+        }
+
+        // Render Main Cockpit Viewport
+        renderer.render(scene, camera);
+      }
+
+      // Launch Application
+      window.onload = () => {
+        initRealTimeWeather();
+        animate();
+      };
+    </script>
+  </body>
+</html>
