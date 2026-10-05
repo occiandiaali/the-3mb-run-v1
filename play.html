@@ -210,6 +210,7 @@
       <div
         class="grid grid-cols-2 sm:grid-cols-3 items-start w-full gap-1.5 sm:gap-2 pt-10 sm:pt-12"
       >
+      
         <!-- Top Left: Progress & Integrity -->
         <div
           class="glass-card rounded-xl p-1.5 sm:p-3 flex flex-col justify-between max-w-[130px] sm:max-w-[210px] w-full"
@@ -227,11 +228,17 @@
               >
             </div>
 
-            <div
+            <!-- <div
               id="hud-distance"
               class="font-digital text-xs sm:text-lg font-black text-cyan-400 leading-tight"
             >
               0.0 / 11.8 KM
+            </div> -->
+                       <div
+              id="hud-distance"
+              class="font-digital text-xs sm:text-lg font-black text-cyan-400 leading-tight"
+            >
+              0.0 / 2 KM
             </div>
 
             <div
@@ -292,8 +299,11 @@
             </div>
 
             <!-- Stacked Gear and RPM for Mobile, Inline for Desktop -->
-            <div
+            <!-- <div
               class="flex flex-col sm:flex-row items-end sm:items-center justify-end sm:gap-2 mt-0.5 sm:mt-1 text-[8px] sm:text-[10px]"
+            > -->
+            <div
+              class="flex flex-col sm:flex-row items-center justify-center sm:gap-2 mt-0.5 sm:mt-1 text-[8px] sm:text-[10px]"
             >
               <div class="flex items-center gap-1">
                 <span class="text-slate-400 font-semibold">GEAR</span>
@@ -305,6 +315,14 @@
                 <span class="text-slate-400 font-semibold">RPM</span>
                 <span id="hud-rpm" class="font-digital font-bold text-rose-400"
                   >800</span
+                >
+              </div>
+              <div class="flex items-center gap-1>
+                <span class="text-slate-400 font-semibold">FUEL</span>
+                <span
+                  id="hud-fuel"
+                  class="font-digital font-bold text-orange-400"
+                  >100</span
                 >
               </div>
             </div>
@@ -368,7 +386,7 @@
               >
             </div>
             <span
-              id="radio-station"
+              id="radio-station-name"
               class="text-[8px] font-digital text-emerald-400 font-bold truncate max-w-[140px]"
               >104.2 FM - SYNTHWAVE</span
             >
@@ -403,12 +421,12 @@
                 style="height: 30%"
               ></div>
             </div>
-            <div
+            <!-- <div
               id="radio-track"
               class="text-[8px] sm:text-[9px] font-digital text-emerald-300 truncate max-w-[130px] sm:max-w-[150px]"
             >
               NEON HIGHWAY (LIVE)
-            </div>
+            </div> -->
           </div>
 
           <div class="flex items-center justify-between w-full px-1 gap-1">
@@ -424,6 +442,7 @@
             >
               PLAY / MUTE
             </button>
+            <button onclick="exitGame();" class="glass-btn px-3 py-1 rounded text-[8px] sm:text-[9px] font-bold text-rose-400 border-rose-500/40">END GAME</button>
             <button
               id="radio-next"
               class="glass-btn px-2 py-1 rounded text-[8px] font-bold text-slate-300"
@@ -432,6 +451,26 @@
             </button>
           </div>
         </div>
+
+      <!-- Center Dashboard: Live Nigerian FM Radio Player -->
+      <!-- <div class="glass-card px-3 py-2 rounded-2xl border border-slate-800 flex flex-col items-center gap-1.5 w-52 sm:w-64 shadow-xl">
+        <div class="w-full flex items-center justify-between text-[10px] font-digital text-slate-400">
+          <span class="text-cyan-400 font-bold flex items-center gap-1">
+            <span id="radio-status-dot" class="w-2 h-2 rounded-full bg-slate-500"></span> LIVE FM
+          </span>
+          <span id="radio-station-name" class="truncate max-w-[130px] text-right font-semibold text-slate-200">
+            CONNECTING...
+          </span>
+        </div>
+
+        <div class="w-full flex items-center justify-between gap-1">
+          <button id="radio-prev" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs font-bold transition-colors">⏮</button>
+          <button id="radio-toggle" class="flex-1 py-1 bg-gradient-to-r from-cyan-500 to-blue-600 text-black rounded-lg text-xs font-digital font-bold uppercase tracking-wider transition-all">
+            PLAY
+          </button>
+          <button id="radio-next" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs font-bold transition-colors">⏭</button>
+        </div>
+      </div> -->
 
         <!-- Bottom Touch Drive Controls -->
         <div class="flex justify-between items-end w-full gap-2">
@@ -483,7 +522,8 @@
               >
             </button>
           </div>
-
+          
+         <!---->
           <!-- Bottom Right: Pedals -->
           <div class="flex items-center gap-1.5 sm:gap-3 interactive">
             <button
@@ -624,19 +664,58 @@
       </div>
     </div>
 
+    
+  <!-- STANDALONE EXIT MANAGER ENGINE -->
+  <script>
+    /**
+     * Standalone Global Exit Manager Function
+     * Can be invoked from inline HTML handlers, window event listeners, or any modal button.
+     */
+    window.exitGame = function(targetUrl = 'index.html') {
+      try {
+        // 1. Stop audio playback & web audio context
+        if (window.audioSystem) {
+          if (window.audioSystem.liveAudio) {
+            window.audioSystem.liveAudio.pause();
+            window.audioSystem.liveAudio.src = '';
+          }
+          if (window.audioSystem.ctx && window.audioSystem.ctx.state !== 'closed') {
+            window.audioSystem.ctx.close();
+          }
+        }
+                // 2. Stop game simulation loop flag
+        if (typeof window.stopSimulation === 'function') {
+          window.stopSimulation();
+        }
+      } catch (err) {
+        console.warn('Error during game exit cleanup:', err);
+      } finally {
+        // 3. Navigate back to destination hub
+        window.location.href = targetUrl;
+      }
+    };
+        // Global KeyListener for ESC key exit
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        window.exitGame();
+      }
+    });
+  </script>
+
     <script>
-      const TARGET_TRIP_KM = 11.8;
+      // const TARGET_TRIP_KM = 11.8;
+      const TARGET_TRIP_KM = 2;
       const TARGET_TRIP_METERS = TARGET_TRIP_KM * 1000;
 
       const CONFIG = {
-        lanes: [-3.8, 0, 3.8],
+        lanes: [-3.8, 0.0, 3.8],
         linePositions: [-1.9, 1.9],
         maxSpeed: 195,
         acceleration: 70,
         braking: 125,
         naturalDecel: 22,
         steeringSpeed: 6.8,
-        trafficCount: 14,
+        trafficCount: 9, //14,
         segmentLength: 50,
       };
 
@@ -645,6 +724,7 @@
         maxRecordedSpeed: 0,
         distance: 0,
         integrity: 100,
+        fuel: 100,
         collisions: 0,
         vehicleX: 0,
         steeringAngle: 0,
@@ -663,40 +743,88 @@
         engineRpm: 800,
         gear: 1,
       };
+      
 
-      // Web Audio Synthesizer Engine
+      // -------------------------------------------------------------
+      //  LIVE RADIO-BROWSER API & SYNTH SFX ENGINE
+      // -------------------------------------------------------------
       class AudioSystem {
         constructor() {
           this.ctx = null;
           this.engineOsc = null;
           this.engineGain = null;
-          this.radioStationIndex = 0;
+          
+          // Live Audio Player setup
+          this.liveAudio = new Audio();
+          this.liveAudio.crossOrigin = "anonymous";
+          
+          this.stations = [];
+          this.currentStationIndex = 0;
           this.isPlayingRadio = false;
-          this.radioTimer = null;
+          this.isFetchingStations = false;
 
-          this.stations = [
-            {
-              name: "104.2 FM - SYNTHWAVE",
-              track: "NEON HIGHWAY (SYNTH)",
-              tempo: 120,
-              freqBase: 220,
-            },
-            {
-              name: "98.5 FM - LO-FI DRIVE",
-              track: "MIDNIGHT CRUISE",
-              tempo: 90,
-              freqBase: 174,
-            },
-            {
-              name: "108.0 FM - AMBIENT CHILL",
-              track: "DISTANT HORIZON",
-              tempo: 70,
-              freqBase: 130,
-            },
+          // Verified HTTPS fallback streams
+          this.fallbackStations = [
+            { title: "Cool FM Lagos", stream_url: "https://stream.zeno.fm/f3wvbbqmdg8uv" },
+            { title: "Wazobia FM Lagos", stream_url: "https://stream.zeno.fm/p2m9r1833z8uv" },
+            { title: "Nigeria Info FM", stream_url: "https://stream.zeno.fm/6f5vbbqmdg8uv" },
+            { title: "Beat FM Lagos", stream_url: "https://stream.zeno.fm/0885m8833z8uv" },
+            { title: "Brila FM Lagos", stream_url: "https://stream.zeno.fm/4v00b8833z8uv" }
           ];
+
+          this.initLiveStations();
         }
 
-        init() {
+        async initLiveStations() {
+          this.isFetchingStations = true;
+          this.updateRadioHudDisplay("TUNING IN...");
+
+          // Radio-Browser API mirrors for resilience
+          const apiHosts = [
+            'https://de1.api.radio-browser.info',
+            'https://at1.api.radio-browser.info',
+            'https://nl1.api.radio-browser.info'
+          ];
+
+          let fetched = false;
+
+          for (const host of apiHosts) {
+            try {
+              // Fetch top voted active Nigerian stations from Radio-Browser API
+              const res = await fetch(`${host}/json/stations/search?countrycode=NG&hidebroken=true&order=votes&reverse=true&limit=15`);
+
+              if (!res.ok) continue;
+
+              const data = await res.json();
+              if (Array.isArray(data) && data.length > 0) {
+                // Map stations and filter for HTTPS streams to prevent Mixed Content security blocks
+                this.stations = data
+                  .map(s => ({
+                    title: (s.name || "Live Nigerian FM").trim(),
+                    stream_url: s.url_resolved || s.url
+                  }))
+                  .filter(s => !!s.stream_url && (window.location.protocol !== 'https:' || s.stream_url.startsWith('https://')));
+
+                if (this.stations.length > 0) {
+                  fetched = true;
+                  break;
+                }
+              }
+            } catch (err) {
+              console.warn(`Radio-Browser host (${host}) request failed:`, err);
+            }
+          }
+
+          if (!fetched || this.stations.length === 0) {
+            console.log("Using primary default Nigerian radio stations list.");
+            this.stations = [...this.fallbackStations];
+          }
+
+          this.isFetchingStations = false;
+          this.updateRadioHudDisplay();
+        }
+
+        initWebAudio() {
           if (this.ctx) return;
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
           this.ctx = new AudioCtx();
@@ -706,7 +834,7 @@
 
           this.engineOsc.type = "sawtooth";
           this.engineOsc.frequency.setValueAtTime(40, this.ctx.currentTime);
-          this.engineGain.gain.setValueAtTime(0.035, this.ctx.currentTime);
+          this.engineGain.gain.setValueAtTime(0.03, this.ctx.currentTime);
 
           const filter = this.ctx.createBiquadFilter();
           filter.type = "lowpass";
@@ -721,13 +849,8 @@
 
         updateEngineSound(speed, rpm) {
           if (!this.ctx) return;
-          const pitch =
-            35 + (rpm / 8000) * 160 + (speed / CONFIG.maxSpeed) * 30;
-          this.engineOsc.frequency.setTargetAtTime(
-            pitch,
-            this.ctx.currentTime,
-            0.1,
-          );
+          const pitch = 35 + (rpm / 8000) * 160 + (speed / CONFIG.maxSpeed) * 30;
+          this.engineOsc.frequency.setTargetAtTime(pitch, this.ctx.currentTime, 0.1);
         }
 
         playScreech() {
@@ -736,10 +859,7 @@
           const gain = this.ctx.createGain();
           osc.type = "triangle";
           osc.frequency.setValueAtTime(850, this.ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(
-            180,
-            this.ctx.currentTime + 0.3,
-          );
+          osc.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.3);
 
           gain.gain.setValueAtTime(0.07, this.ctx.currentTime);
           gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
@@ -753,11 +873,7 @@
         playCrashSound() {
           if (!this.ctx) return;
           const bufferSize = this.ctx.sampleRate * 0.45;
-          const buffer = this.ctx.createBuffer(
-            1,
-            bufferSize,
-            this.ctx.sampleRate,
-          );
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
           const data = buffer.getChannelData(0);
           for (let i = 0; i < bufferSize; i++) {
             data[i] = Math.random() * 2 - 1;
@@ -769,17 +885,11 @@
           const filter = this.ctx.createBiquadFilter();
           filter.type = "lowpass";
           filter.frequency.setValueAtTime(1100, this.ctx.currentTime);
-          filter.frequency.linearRampToValueAtTime(
-            120,
-            this.ctx.currentTime + 0.45,
-          );
+          filter.frequency.linearRampToValueAtTime(120, this.ctx.currentTime + 0.45);
 
           const gain = this.ctx.createGain();
           gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(
-            0.01,
-            this.ctx.currentTime + 0.45,
-          );
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.45);
 
           noise.connect(filter);
           filter.connect(gain);
@@ -789,64 +899,101 @@
         }
 
         toggleRadio() {
-          this.init();
+          this.initWebAudio();
+          if (this.stations.length === 0) return false;
+
           this.isPlayingRadio = !this.isPlayingRadio;
+
           if (this.isPlayingRadio) {
-            this.startRadioLoop();
+            this.playCurrentStation();
           } else {
-            if (this.radioTimer) clearInterval(this.radioTimer);
+            this.liveAudio.pause();
           }
+
+          this.updateRadioHudDisplay();
           return this.isPlayingRadio;
         }
 
-        nextStation(direction = 1) {
-          this.radioStationIndex =
-            (this.radioStationIndex + direction + this.stations.length) %
-            this.stations.length;
-          if (this.isPlayingRadio) {
-            this.startRadioLoop();
+       stopRadio() {
+          this.isPlayingRadio = false;
+          if (this.liveAudio) {
+            this.liveAudio.pause();
+            this.liveAudio.src = '';
           }
-          return this.stations[this.radioStationIndex];
+          this.updateRadioHudDisplay();
         }
 
-        startRadioLoop() {
-          if (this.radioTimer) clearInterval(this.radioTimer);
+        playCurrentStation() {
+          if (this.stations.length === 0) return;
+          const station = this.stations[this.currentStationIndex];
+          if (!station || !station.stream_url) return;
 
-          const station = this.stations[this.radioStationIndex];
-          const notes = [0, 3, 5, 7, 10, 12, 15];
-          let step = 0;
-          const intervalMs = ((60 / station.tempo) * 1000) / 2;
+          this.liveAudio.src = station.stream_url;
+          this.updateRadioHudDisplay("BUFFERING...");
 
-          this.radioTimer = setInterval(() => {
-            if (!this.isPlayingRadio || !this.ctx) return;
+          this.liveAudio.play().then(() => {
+            this.updateRadioHudDisplay();
+          }).catch(err => {
+            console.warn("Live radio playback issue:", err);
+            this.updateRadioHudDisplay("STREAM ERROR");
+            // Auto fallback to next active station if current fails
+            setTimeout(() => {
+              if (this.isPlayingRadio) {
+                this.nextStation(1);
+              }
+            }, 2000);
+          });
+        }
 
-            const noteOffset = notes[step % notes.length];
-            const freq = station.freqBase * Math.pow(2, noteOffset / 12);
+        nextStation(direction = 1) {
+          this.initWebAudio();
+          if (this.stations.length === 0) return;
 
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
+          this.currentStationIndex = (this.currentStationIndex + direction + this.stations.length) % this.stations.length;
+          
+          if (this.isPlayingRadio) {
+            this.playCurrentStation();
+          } else {
+            this.updateRadioHudDisplay();
+          }
+          return this.stations[this.currentStationIndex];
+        }
 
-            osc.type = step % 4 === 0 ? "square" : "sine";
-            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        updateRadioHudDisplay(statusOverride = null) {
+          const nameEl = document.getElementById('radio-station-name');
+          const toggleBtn = document.getElementById('radio-play');
+          const dotEl = document.getElementById('radio-status-dot');
 
-            gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(
-              0.001,
-              this.ctx.currentTime + intervalMs / 1000,
-            );
+          if (this.isFetchingStations) {
+            if (nameEl) nameEl.innerText = "TUNING IN...";
+            return;
+          }
 
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
+          if (statusOverride) {
+            if (nameEl) nameEl.innerText = statusOverride;
+          } else if (this.stations.length > 0) {
+            const current = this.stations[this.currentStationIndex];
+            if (nameEl) nameEl.innerText = current.title.toUpperCase();
+          } else {
+            if (nameEl) nameEl.innerText = "NO STATIONS";
+          }
 
-            osc.start();
-            osc.stop(this.ctx.currentTime + intervalMs / 1000);
+          if (toggleBtn) {
+            toggleBtn.innerText = this.isPlayingRadio ? 'PAUSE' : 'PLAY';
+          }
 
-            step++;
-          }, intervalMs);
+          if (dotEl) {
+            dotEl.className = this.isPlayingRadio 
+              ? "w-2 h-2 rounded-full bg-emerald-400 animate-ping" 
+              : "w-2 h-2 rounded-full bg-slate-500";
+          }
         }
       }
 
       const audioSystem = new AudioSystem();
+      window.audioSystem = audioSystem; // Attach to window for standalone Exit Manager cleanup
+
+      //=============
 
       const container = document.getElementById("canvas-container");
       const scene = new THREE.Scene();
@@ -1206,8 +1353,10 @@
       }
 
       async function initRealTimeWeather() {
-        let lat = 40.7128,
-          lon = -74.006;
+        // let lat = 40.7128,
+        //   lon = -74.006;
+        let lat = 6.60184,
+          lon = 3.35149;
 
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
@@ -1285,8 +1434,10 @@
 
         const needLights =
           state.timeOfDay === "Night" || state.timeOfDay === "Dusk";
-        headlightLeft.intensity = needLights ? 2.5 : 0;
-        headlightRight.intensity = needLights ? 2.5 : 0;
+        // headlightLeft.intensity = needLights ? 2.5 : 0;
+        // headlightRight.intensity = needLights ? 2.5 : 0;
+        headlightLeft.intensity = needLights ? 2.8 : 0;
+        headlightRight.intensity = needLights ? 2.8 : 0;
         streetLights.forEach((light) =>
           light.material.color.setHex(needLights ? 0xfef08a : 0x475569),
         );
@@ -1294,6 +1445,7 @@
 
       const btnLeft = document.getElementById("btn-left");
       const btnRight = document.getElementById("btn-right");
+    
       const btnAccel = document.getElementById("btn-accel");
       const btnBrake = document.getElementById("btn-brake");
       const modalRestartBtn = document.getElementById("modal-restart-btn");
@@ -1301,7 +1453,8 @@
       const bindTouchControls = (element, onPress, onRelease) => {
         const handlePress = (e) => {
           if (e.cancelable) e.preventDefault();
-          audioSystem.init();
+        
+         audioSystem.initWebAudio();
           element.classList.add("active");
           onPress();
         };
@@ -1322,6 +1475,8 @@
         element.addEventListener("mouseleave", handleRelease);
       };
 
+    
+
       bindTouchControls(
         btnLeft,
         () => (state.isSteeringLeft = true),
@@ -1341,21 +1496,33 @@
         btnBrake,
         () => {
           state.isBraking = true;
-          if (state.speed > 30) audioSystem.playScreech();
+          // if (state.speed > 30) audioSystem.playScreech();
+          state.fuel -= 1;
         },
         () => (state.isBraking = false),
       );
 
+      
       window.addEventListener("keydown", (e) => {
-        audioSystem.init();
+
+       // audioSystem.init();
+       audioSystem.initWebAudio();
         if (["ArrowLeft", "a", "A"].includes(e.key))
           state.isSteeringLeft = true;
         if (["ArrowRight", "d", "D"].includes(e.key))
           state.isSteeringRight = true;
         if (["ArrowUp", "w", "W"].includes(e.key)) state.isAccelerating = true;
         if (["ArrowDown", "s", "S"].includes(e.key)) {
-          if (!state.isBraking && state.speed > 30) audioSystem.playScreech();
+          // if (!state.isBraking && state.speed > 30) audioSystem.playScreech();
           state.isBraking = true;
+          state.fuel -= 1;
+          // Fuel Tank Update
+          if (state.fuel === 0) {
+            triggerEmptyTank(
+              "You've run out of fuel. Repeated braking uses energy, you know.",
+            );
+        
+          }
         }
       });
 
@@ -1368,7 +1535,7 @@
         if (["ArrowDown", "s", "S"].includes(e.key)) state.isBraking = false;
       });
 
-      // FM Radio Control Bindings
+            // FM Radio Control Bindings
       const radioPlayBtn = document.getElementById("radio-play");
       const radioPrevBtn = document.getElementById("radio-prev");
       const radioNextBtn = document.getElementById("radio-next");
@@ -1380,8 +1547,8 @@
       });
 
       const updateRadioUI = (station) => {
-        document.getElementById("radio-station").innerText = station.name;
-        document.getElementById("radio-track").innerText = station.track;
+        document.getElementById("radio-station-name").innerText = station.name || "Seeking..";
+        //document.getElementById("radio-track").innerText = station.track;
       };
 
       radioPrevBtn.addEventListener("click", () =>
@@ -1390,6 +1557,8 @@
       radioNextBtn.addEventListener("click", () =>
         updateRadioUI(audioSystem.nextStation(1)),
       );
+
+
 
       modalRestartBtn.addEventListener("click", () => resetGameRun());
 
@@ -1400,6 +1569,7 @@
         state.maxRecordedSpeed = 0;
         state.distance = 0;
         state.integrity = 100;
+        state.fuel = 100;
         state.collisions = 0;
         state.vehicleX = 0;
         state.startTime = null;
@@ -1423,6 +1593,8 @@
       function triggerGameOver(cause) {
         state.isCrashed = true;
         audioSystem.playCrashSound();
+        console.log("Triggered Game OVer CRASH!");
+  
 
         document.getElementById("modal-badge").innerText = "RUN FAILED";
         document.getElementById("modal-badge").className =
@@ -1434,33 +1606,94 @@
         document.getElementById("modal-subtitle").innerText = cause;
 
         populateSummaryStats();
+        audioSystem.stopRadio();
         document.getElementById("end-modal").classList.remove("hidden");
       }
 
-      function triggerVictory() {
-        state.isFinished = true;
-
-        document.getElementById("modal-badge").innerText = "RUN COMPLETED";
+      function triggerEmptyTank(cause) {
+        state.isCrashed = true;
+        console.log("Triggered empty tank!");
+        document.getElementById("modal-badge").innerText = "RUN FAILED";
         document.getElementById("modal-badge").className =
-          "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
-
-        document.getElementById("modal-title").innerText =
-          "DESTINATION REACHED";
+          "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-rose-500/20 text-rose-400 border border-rose-500/40";
+          
+        document.getElementById("modal-title").innerText = "VEHICLE STOPPED";
         document.getElementById("modal-title").className =
-          "font-digital text-xl sm:text-3xl font-black text-emerald-400 mb-1";
-        document.getElementById("modal-subtitle").innerText =
-          "Congratulations! You completed the 11.8 KM drive!";
+        "font-digital text-xl sm:text-3xl font-black text-rose-500 mb-1";
+        document.getElementById("modal-subtitle").innerText = cause;
+        
+        populateSummaryStats();
+        audioSystem.stopRadio();
+                console.log("elapsedTime in secs: ", (state.elapsedTime*1000));
+        console.log("elapsedTime in milli secs: ", Date.now() - state.startTime);
+        console.log("Formatted elapsedTime: ", formatTime(Date.now() - state.startTime));
+        document.getElementById("end-modal").classList.remove("hidden");
+      }
+
+      // async function triggerVictory() {
+      //   state.isFinished = true;
+
+      //   document.getElementById("modal-badge").innerText = "RUN COMPLETED";
+      //   document.getElementById("modal-badge").className =
+      //     "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+
+      //   document.getElementById("modal-title").innerText =
+      //     "BRIDGE CONQUERED!";
+      //   document.getElementById("modal-title").className =
+      //     "font-digital text-xl sm:text-3xl font-black text-emerald-400 mb-1";
+      //   // document.getElementById("modal-subtitle").innerText =
+      //   //   "Congratulations! You completed the 11.8 KM drive!";
+      //           document.getElementById("modal-subtitle").innerText =
+      //     "Congratulations! You completed the 2 KM drive!";
+
+      //   populateSummaryStats();
+      //   audioSystem.stopRadio();
+      //                   console.log("elapsedTime in secs: ", (state.elapsedTime*1000));
+      //   console.log("elapsedTime in milli secs: ", Date.now() - state.startTime);
+      //   console.log("Formatted elapsedTime: ", formatTime(Date.now() - state.startTime));
+      //   await submitScoreToSupabase((state.elapsedTime*1000));
+
+      //   document.getElementById("end-modal").classList.remove("hidden");
+      // }
+
+      async function triggerVictory() {
+  state.isFinished = true;
+
+  document.getElementById("modal-badge").innerText = "RUN COMPLETED";
+  document.getElementById("modal-badge").className =
+    "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+
+  document.getElementById("modal-title").innerText = "BRIDGE CONQUERED!";
+  document.getElementById("modal-title").className =
+    "font-digital text-xl sm:text-3xl font-black text-emerald-400 mb-1";
+  
+  document.getElementById("modal-subtitle").innerText =
+    "Congratulations! You completed the 2 KM drive!";
 
         populateSummaryStats();
-        document.getElementById("end-modal").classList.remove("hidden");
-      }
+  if (window.audioSystem) window.audioSystem.stopRadio();
+
+  // Ensure integer milliseconds (Postgres BIGINT expects integers)
+  const exactTimeMs = Math.round(state.elapsedTime * 1000);
+
+  console.log("-----------------------------------------");
+  console.log("🏆 Victory Triggered!");
+  console.log("elapsedTime in milli secs:", exactTimeMs);
+  console.log("Formatted elapsedTime:", formatTime(exactTimeMs));
+
+  await submitScoreToSupabase(exactTimeMs);
+
+  document.getElementById("end-modal").classList.remove("hidden");
+}
 
       function populateSummaryStats() {
         const mins = Math.floor(state.elapsedTime / 60);
         const secs = (state.elapsedTime % 60).toFixed(1);
-
-        document.getElementById("summary-distance").innerText =
-          `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
+        console.log(`populateSum: ${String(mins).padStart(2, "0")}:${String(secs).padStart(4, "0")}`)
+        // document.getElementById("summary-distance").innerText =
+        //   `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
+                document.getElementById("summary-distance").innerText =
+          `${(state.distance / 1000).toFixed(1)} / 2 KM`;
         document.getElementById("summary-time").innerText =
           `${String(mins).padStart(2, "0")}:${String(secs).padStart(4, "0")}`;
         document.getElementById("summary-top-speed").innerText =
@@ -1469,11 +1702,110 @@
           state.collisions;
       }
 
+      // async function submitScoreToSupabase(timeMs) {
+      //   const config = window.CONFIG || {};
+      //   const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
+
+      //         if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || !window.supabase) return;
+
+      //   try {
+      //     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      //     const { data: { session } } = await supabase.auth.getSession();
+      //     if (!session) return;
+
+      //     const driverName = window.currentDriverName || "SpeedrunDriver";
+
+      //     await supabase.from('leaderboards').insert([
+      //       {
+      //         user_id: session.user.id,
+      //         username: driverName,
+      //         completion_time_ms: timeMs,
+      //         completion_time_formatted: formatTime(timeMs)
+      //       }
+      //     ]);
+      //   } catch (err) {
+      //     console.warn("Failed to sync score to Supabase:", err);
+      //   }
+      // }
+      
+     async function submitScoreToSupabase(timeMs) {
+  const config = window.CONFIG || {};
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
+
+  // 1. Diagnostic Checks
+  console.log("🔍 [Diagnostic] window.CONFIG object:", window.CONFIG);
+  console.log("🔍 [Diagnostic] Evaluated SUPABASE_URL:", SUPABASE_URL);
+  console.log("🔍 [Diagnostic] Evaluated SUPABASE_ANON_KEY:", SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : "missing");
+
+  if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || SUPABASE_URL === "undefined") {
+    console.warn(`⚠️ Supabase submission skipped: SUPABASE_URL is unconfigured or default. Captured value: "${SUPABASE_URL}"`);
+    return;
+  }
+
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+    console.warn("⚠️ Supabase submission skipped: window.supabase SDK is missing.");
+    return;
+  }
+  
+    try {
+          // Local scope client instance (Does NOT clash with window.supabase global SDK object)
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: { session }, error: sessionError } = await client.auth.getSession();
+
+    if (sessionError) {
+      console.error("❌ Session Retrieval Error:", sessionError.message);
+      return;
+    }
+
+    if (!session || !session.user) {
+      console.warn("⚠️ Supabase submission skipped: No active user auth session found.");
+      return;
+    }
+
+    const driverName = window.currentDriverName || "SpeedrunDriver";
+
+    // Ensure integer value for BIGINT database column
+    const roundedTimeMs = Math.round(timeMs);
+
+    console.log(`📡 Submitting score to Supabase for driver '${driverName}' (User ID: ${session.user.id})...`);
+
+        // 2. Perform Insert & ALWAYS check returned 'error' object
+    const { data, error } = await client.from('leaderboards').insert([
+      {
+        user_id: session.user.id,
+        username: driverName,
+        completion_time_ms: roundedTimeMs,
+        completion_time_formatted: formatTime(roundedTimeMs)
+      }
+    ]);
+
+    // Supabase SDK DOES NOT throw JS exceptions for database or RLS errors!
+    if (error) {
+      console.error("❌ Supabase Leaderboard Insert Failed:", error.message, error.details, error.hint);
+      return;
+    }
+
+    console.log("✅ Leaderboard entry successfully synced to Supabase!", data);
+
+  } catch (err) {
+    // Only handles catastrophic network failures or code runtime crashes
+    console.error("💥 Unexpected network failure during Supabase sync:", err);
+  }
+}
+
+      function formatTime(ms) {
+        const totalSec = Math.floor(ms / 1000);
+        const mins = Math.floor(totalSec / 60);
+        const secs = totalSec % 60;
+        const millis = Math.floor((ms % 1000) / 10);
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(millis).padStart(2, '0')}`;
+      }
+
       function onCollision() {
         audioSystem.playCrashSound();
 
-        // Reduce integrity by exactly 3% per crash
-        state.integrity -= 3;
+        // Reduce integrity by exactly 2% per crash
+        state.integrity -= 2;
         state.collisions += 1;
 
         const containerEl = document.getElementById("canvas-container");
@@ -1581,6 +1913,13 @@
           if (state.distance >= TARGET_TRIP_METERS) {
             state.distance = TARGET_TRIP_METERS;
             triggerVictory();
+          }
+
+          // Fuel Tank Update
+          if (state.fuel === 0) {
+            triggerEmptyTank(
+              "You've run out of fuel. Repeated braking uses energy, you know.",
+            );
           }
 
           // Audio Engine Update
@@ -1691,8 +2030,10 @@
         document.getElementById("hud-speed").innerText = Math.floor(
           state.speed,
         );
-        document.getElementById("hud-distance").innerText =
-          `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
+        // document.getElementById("hud-distance").innerText =
+        //   `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
+                document.getElementById("hud-distance").innerText =
+          `${(state.distance / 1000).toFixed(1)} / 2 KM`;
 
         const tripPct = Math.min(
           100,
@@ -1716,6 +2057,7 @@
 
         document.getElementById("hud-gear").innerText = `D${state.gear}`;
         document.getElementById("hud-rpm").innerText = state.engineRpm;
+        document.getElementById("hud-fuel").innerText = state.fuel;
 
         if (audioSystem.isPlayingRadio) {
           const bars = document.querySelectorAll("#equalizer-bars div");

@@ -224,9 +224,9 @@
 
             <a
               href="play.html"
-              class="block w-full text-center bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm py-3.5 rounded-xl transition-all font-digital uppercase tracking-widest shadow-lg shadow-emerald-500/20"
+              class="block w-full text-center bg-green-500 hover:bg-green-400 text-black font-black text-sm py-3.5 rounded-xl transition-all font-digital uppercase tracking-widest shadow-lg shadow-emerald-500/20"
             >
-              Start Engine (Launch Play)
+              Start Engine
             </a>
           </div>
         </div>
@@ -445,15 +445,12 @@
               btn.disabled = false;
             } else {
               showAlert(
-                "Magic Link sent! Please check your email inbox to complete sign-in.",
+                "Magic Link sent! Please check your email (inbox or spam) to complete sign-in.",
               );
               btn.innerText = "LINK SENT";
             }
           } catch (err) {
-            showAlert(
-              "Failed to send Magic Link. Verify your Supabase URL & keys.",
-              true,
-            );
+            showAlert("Failed to send Magic Link. Contact Support.", true);
             btn.innerText = "SEND MAGIC LINK";
             btn.disabled = false;
           }
