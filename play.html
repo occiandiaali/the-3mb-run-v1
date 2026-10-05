@@ -146,9 +146,73 @@
 
     <!-- Auth Guard Script -->
     <script>
+            // -----------------------------------------------------------
+      // Helper to ensure CONFIG is available even if script loading order or 404 occurs on play.html
+      // -----------------------------------------------------
+      function getResolvedConfig() {
+        if (window.CONFIG && window.CONFIG.SUPABASE_URL && !window.CONFIG.SUPABASE_URL.includes("YOUR_SUPABASE")) {
+          // Sync to localStorage as backup for multi-page loads
+          try {
+            localStorage.setItem("3mb_config", JSON.stringify(window.CONFIG));
+          } catch (e) {
+            console.warn("Unable to write config to localStorage", e);
+          }
+          return window.CONFIG;
+        }
+
+        // Try recovering from localStorage backup
+        try {
+          const cached = localStorage.getItem("3mb_config");
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.SUPABASE_URL) {
+              window.CONFIG = parsed;
+              console.info("💡 [Diagnostic] Restored window.CONFIG from localStorage cache!");
+              return parsed;
+
+            }
+          }
+        } catch (e) {
+          console.warn("Failed reading 3mb_config from localStorage", e);
+        }
+
+        return window.CONFIG || {};
+      }
+
+      // Helper to resolve driver username from memory or local storage
+    // function getResolvedDriverName() {
+    //   if (window.currentDriverName && window.currentDriverName !== "DemoDriver") {
+    //     try {
+    //       localStorage.setItem("3mb_driver_name", window.currentDriverName);
+    //     } catch (e) {}
+    //     return window.currentDriverName;
+    //   }
+
+    //   try {
+    //     const cachedDriver = localStorage.getItem("3mb_driver_name");
+    //     if (cachedDriver) {
+    //       window.currentDriverName = cachedDriver;
+    //       return cachedDriver;
+    //     }
+    //   } catch (e) {}
+
+    //   return window.currentDriverName || "SpeedrunDriver";
+    // }
+        function getResolvedDriverName() {
+      try {
+        const cachedName = localStorage.getItem("3mb_driver_name");
+        if (cachedName) return cachedName;
+      } catch (e) {}
+      return window.currentDriverName || "DemoDriver";
+    }
+    //---------------------------------
       document.addEventListener("DOMContentLoaded", async () => {
-        const config = window.CONFIG || {};
+        const config = getResolvedConfig();
+
         const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
+
+        const cachedDriver = getResolvedDriverName();
+        window.currentDriverName = cachedDriver;
 
         const isSupabaseAvailable =
           SUPABASE_URL &&
@@ -187,16 +251,18 @@
 
             window.currentUser = user;
             window.currentDriverName = driverData[0].username;
+            try {
+              localStorage.setItem("3mb_driver_name", driverData[0].username);
+            } catch (e) {}
           } catch (err) {
+            console.warn("Auth check bypassed; running local session with driver name:", window.currentDriverName);
             console.warn(
-              "Supabase auth check bypassed; running local demo session.",
+              "Auth check bypass error: ",
               err,
             );
-            window.currentDriverName = "DemoDriver";
+            
           }
-        } else {
-          window.currentDriverName = "DemoDriver";
-        }
+        } 
       });
     </script>
   </head>
@@ -743,34 +809,7 @@
         engineRpm: 800,
         gear: 1,
       };
-
-      // -----------------------------------------------------------
-      // Helper to ensure CONFIG is available even if script loading order or 404 occurs on play.html
-      // -----------------------------------------------------
-      function getResolvedConfig() {
-        if (window.CONFIG && window.CONFIG.SUPABASE_URL) {
-          // Sync to localStorage as backup for multi-page loads
-          try {
-            localStorage.setItem("3mb_config", JSON.stringify(window.CONFIG));
-          } catch (e) {}
-          return window.CONFIG;
-        }
-
-        // Try recovering from localStorage backup
-        try {
-          const cached = localStorage.getItem("3mb_config");
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            window.CONFIG = parsed;
-            console.info("💡 [Diagnostic] Restored window.CONFIG from localStorage cache!");
-            return parsed;
-          }
-        } catch (e) {}
-
-        return window.CONFIG || {};
-      }
       
-
       // -------------------------------------------------------------
       //  LIVE RADIO-BROWSER API & SYNTH SFX ENGINE
       // -------------------------------------------------------------
@@ -1705,7 +1744,6 @@
         console.log("-----------------------------------------");
         console.log("🏆 Victory Triggered!");
         console.log("elapsedTime in milli secs:", exactTimeMs);
-        console.log("Formatted elapsedTime:", formatTime(exactTimeMs));
 
         await submitScoreToSupabase(exactTimeMs);
 
@@ -1753,65 +1791,52 @@
       //     console.warn("Failed to sync score to Supabase:", err);
       //   }
       // }
-    async function submitScoreToSupabase(timeMs) {
-      const config = getResolvedConfig();
-      const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
 
-      // 1. Detailed Diagnostic Checks
-      console.log("🔍 [Diagnostic] window.CONFIG object:", window.CONFIG);
-      console.log("🔍 [Diagnostic] Evaluated SUPABASE_URL:", SUPABASE_URL);
-      console.log("🔍 [Diagnostic] Evaluated SUPABASE_ANON_KEY:", SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : "missing");
+      async function submitScoreToSupabase(timeMs) {
+          const config = getResolvedConfig();
+          const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
+          if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || !window.supabase) return;
 
-      if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || SUPABASE_URL === "undefined") {
-        console.warn(`⚠️ Supabase submission skipped: SUPABASE_URL is unconfigured or default. Captured value: "${SUPABASE_URL}"`);
+          // 1. Detailed Diagnostic Checks
+          console.log("🔍 [Diagnostic] Evaluated SUPABASE_URL:", SUPABASE_URL);
+          console.log("🔍 [Diagnostic] Evaluated Driver Name:", driverName);
 
-        return;
-      }
-
-      if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-        console.warn("⚠️ Supabase submission skipped: window.supabase SDK is missing.");
-        return;
-      }
-
-      try {
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const { data: { session }, error: sessionError } = await client.auth.getSession();
-
-        if (sessionError) {
-          console.error("❌ Session Retrieval Error:", sessionError.message);
-          return;
-        }
-
-        if (!session || !session.user) {
-          console.warn("⚠️ Supabase submission skipped: Running in Demo Driver mode (no active auth session).");
-          return;
-        }
-
-        const driverName = window.currentDriverName || "SpeedrunDriver";
-        const roundedTimeMs = Math.round(timeMs);
-
-        console.log(`📡 Submitting score to Supabase for driver '${driverName}' (User ID: ${session.user.id})...`);
-
-        const { data, error } = await client.from('leaderboards').insert([
-          {
-            user_id: session.user.id,
-            username: driverName,
-            completion_time_ms: roundedTimeMs,
-            completion_time_formatted: formatTime(roundedTimeMs)
+          if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || SUPABASE_URL === "undefined") {
+            console.warn(`⚠️ Supabase submission skipped: SUPABASE_URL is unconfigured or default. Captured value: "${SUPABASE_URL}"`);
+            return;
           }
-        ]);
 
-        if (error) {
-          console.error("❌ Supabase Leaderboard Insert Failed:", error.message, error.details, error.hint);
-          return;
-        }
+          if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+            console.warn("⚠️ Supabase submission skipped: window.supabase SDK is missing.");
+            return;
+          }
 
-        console.log("✅ Leaderboard entry successfully synced to Supabase!", data);
+          try {
+            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            const { data: { session } } = await client.auth.getSession();
+            if (!session) return;
 
-      } catch (err) {
-        console.error("💥 Unexpected failure during Supabase sync:", err);
+            const driverName = getResolvedDriverName();
+
+            const roundedTimeMs = Math.round(timeMs);
+
+            console.log(`📡 Submitting score to Supabase for driver '${driverName}' (User ID: ${session.user.id})...`);
+
+            const { data, error } = await client.from('leaderboards').insert([
+              {
+                user_id: session.user.id,
+                username: driverName,
+                completion_time_ms: roundedTimeMs,
+                completion_time_formatted: formatTime(roundedTimeMs)
+              }
+            ]);
+
+            console.log("✅ Leaderboard entry successfully synced to Supabase!", data);
+
+          } catch (err) {
+            console.error("💥 Unexpected failure during Supabase sync:", err);
+          }
       }
-    }
 
       function formatTime(ms) {
         const totalSec = Math.floor(ms / 1000);

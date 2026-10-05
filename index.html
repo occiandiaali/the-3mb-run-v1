@@ -295,7 +295,25 @@
 
     <script>
       const config = window.CONFIG || {};
-      const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
+
+      // Cache CONFIG in localStorage so play.html can recover it if config.js fails to load
+      if (
+        window.CONFIG &&
+        window.CONFIG.SUPABASE_URL &&
+        !window.CONFIG.SUPABASE_URL.includes("YOUR_SUPABASE")
+      ) {
+        try {
+          localStorage.setItem("3mb_config", JSON.stringify(window.CONFIG));
+        } catch (e) {}
+      } else {
+        try {
+          const cached = localStorage.getItem("3mb_config");
+          if (cached) {
+            window.CONFIG = JSON.parse(cached);
+          }
+        } catch (e) {}
+      }
+      const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.CONFIG || {};
 
       let supabaseClient = null;
 
@@ -377,7 +395,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get("unauthorized")) {
           showAlert(
-            "Access Denied: Please log in and set a driver alias first.",
+            "Access Denied: Please log in and set a user alias first.",
             true,
           );
         }
@@ -395,6 +413,11 @@
           document.getElementById("step-auth").classList.add("hidden");
 
           if (data && data.username) {
+            // Store driver name in localStorage for play.html
+            try {
+              localStorage.setItem("3mb_driver_name", data.username);
+            } catch (e) {}
+
             // Profile exists - show ready state
             document.getElementById("step-username").classList.add("hidden");
             document.getElementById("step-ready").classList.remove("hidden");
@@ -419,11 +442,7 @@
         .getElementById("magic-link-form")
         .addEventListener("submit", async (e) => {
           e.preventDefault();
-          if (!supabaseClient)
-            return showAlert(
-              "Valid Supabase config required in config.js.",
-              true,
-            );
+          if (!supabaseClient) return showAlert("Database error..", true);
 
           const email = document.getElementById("auth-email").value.trim();
           const btn = document.getElementById("send-magic-btn");
@@ -489,6 +508,9 @@
               );
             } else {
               showAlert("Driver Profile Created Successfully!");
+              try {
+                localStorage.setItem("3mb_driver_name", username);
+              } catch (e) {}
               await checkDriverProfile(user);
             }
           } catch (err) {
@@ -500,6 +522,10 @@
       document
         .getElementById("signout-btn")
         .addEventListener("click", async () => {
+          try {
+            localStorage.removeItem("3mb_driver_name");
+          } catch (e) {}
+
           if (supabaseClient) await supabaseClient.auth.signOut();
           window.location.reload();
         });
