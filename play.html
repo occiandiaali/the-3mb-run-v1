@@ -743,6 +743,32 @@
         engineRpm: 800,
         gear: 1,
       };
+
+      // -----------------------------------------------------------
+      // Helper to ensure CONFIG is available even if script loading order or 404 occurs on play.html
+      // -----------------------------------------------------
+      function getResolvedConfig() {
+        if (window.CONFIG && window.CONFIG.SUPABASE_URL) {
+          // Sync to localStorage as backup for multi-page loads
+          try {
+            localStorage.setItem("3mb_config", JSON.stringify(window.CONFIG));
+          } catch (e) {}
+          return window.CONFIG;
+        }
+
+        // Try recovering from localStorage backup
+        try {
+          const cached = localStorage.getItem("3mb_config");
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            window.CONFIG = parsed;
+            console.info("💡 [Diagnostic] Restored window.CONFIG from localStorage cache!");
+            return parsed;
+          }
+        } catch (e) {}
+
+        return window.CONFIG || {};
+      }
       
 
       // -------------------------------------------------------------
@@ -1657,34 +1683,34 @@
       // }
 
       async function triggerVictory() {
-  state.isFinished = true;
+        state.isFinished = true;
 
-  document.getElementById("modal-badge").innerText = "RUN COMPLETED";
-  document.getElementById("modal-badge").className =
-    "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+        document.getElementById("modal-badge").innerText = "RUN COMPLETED";
+        document.getElementById("modal-badge").className =
+          "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
 
-  document.getElementById("modal-title").innerText = "BRIDGE CONQUERED!";
-  document.getElementById("modal-title").className =
-    "font-digital text-xl sm:text-3xl font-black text-emerald-400 mb-1";
-  
-  document.getElementById("modal-subtitle").innerText =
-    "Congratulations! You completed the 2 KM drive!";
+        document.getElementById("modal-title").innerText = "BRIDGE CONQUERED!";
+        document.getElementById("modal-title").className =
+          "font-digital text-xl sm:text-3xl font-black text-emerald-400 mb-1";
+        
+        document.getElementById("modal-subtitle").innerText =
+          "Congratulations! You completed the 2 KM drive!";
 
-        populateSummaryStats();
-  if (window.audioSystem) window.audioSystem.stopRadio();
+              populateSummaryStats();
+        if (window.audioSystem) window.audioSystem.stopRadio();
 
-  // Ensure integer milliseconds (Postgres BIGINT expects integers)
-  const exactTimeMs = Math.round(state.elapsedTime * 1000);
+        // Ensure integer milliseconds (Postgres BIGINT expects integers)
+        const exactTimeMs = Math.round(state.elapsedTime * 1000);
 
-  console.log("-----------------------------------------");
-  console.log("🏆 Victory Triggered!");
-  console.log("elapsedTime in milli secs:", exactTimeMs);
-  console.log("Formatted elapsedTime:", formatTime(exactTimeMs));
+        console.log("-----------------------------------------");
+        console.log("🏆 Victory Triggered!");
+        console.log("elapsedTime in milli secs:", exactTimeMs);
+        console.log("Formatted elapsedTime:", formatTime(exactTimeMs));
 
-  await submitScoreToSupabase(exactTimeMs);
+        await submitScoreToSupabase(exactTimeMs);
 
-  document.getElementById("end-modal").classList.remove("hidden");
-}
+        document.getElementById("end-modal").classList.remove("hidden");
+      }
 
       function populateSummaryStats() {
         const mins = Math.floor(state.elapsedTime / 60);
@@ -1727,71 +1753,65 @@
       //     console.warn("Failed to sync score to Supabase:", err);
       //   }
       // }
-      
-     async function submitScoreToSupabase(timeMs) {
-  const config = window.CONFIG || {};
-  const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
+    async function submitScoreToSupabase(timeMs) {
+      const config = getResolvedConfig();
+      const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
 
-  // 1. Diagnostic Checks
-  console.log("🔍 [Diagnostic] window.CONFIG object:", window.CONFIG);
-  console.log("🔍 [Diagnostic] Evaluated SUPABASE_URL:", SUPABASE_URL);
-  console.log("🔍 [Diagnostic] Evaluated SUPABASE_ANON_KEY:", SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : "missing");
+      // 1. Detailed Diagnostic Checks
+      console.log("🔍 [Diagnostic] window.CONFIG object:", window.CONFIG);
+      console.log("🔍 [Diagnostic] Evaluated SUPABASE_URL:", SUPABASE_URL);
+      console.log("🔍 [Diagnostic] Evaluated SUPABASE_ANON_KEY:", SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : "missing");
 
-  if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || SUPABASE_URL === "undefined") {
-    console.warn(`⚠️ Supabase submission skipped: SUPABASE_URL is unconfigured or default. Captured value: "${SUPABASE_URL}"`);
-    return;
-  }
+      if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || SUPABASE_URL === "undefined") {
+        console.warn(`⚠️ Supabase submission skipped: SUPABASE_URL is unconfigured or default. Captured value: "${SUPABASE_URL}"`);
 
-  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-    console.warn("⚠️ Supabase submission skipped: window.supabase SDK is missing.");
-    return;
-  }
-  
-    try {
-          // Local scope client instance (Does NOT clash with window.supabase global SDK object)
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data: { session }, error: sessionError } = await client.auth.getSession();
-
-    if (sessionError) {
-      console.error("❌ Session Retrieval Error:", sessionError.message);
-      return;
-    }
-
-    if (!session || !session.user) {
-      console.warn("⚠️ Supabase submission skipped: No active user auth session found.");
-      return;
-    }
-
-    const driverName = window.currentDriverName || "SpeedrunDriver";
-
-    // Ensure integer value for BIGINT database column
-    const roundedTimeMs = Math.round(timeMs);
-
-    console.log(`📡 Submitting score to Supabase for driver '${driverName}' (User ID: ${session.user.id})...`);
-
-        // 2. Perform Insert & ALWAYS check returned 'error' object
-    const { data, error } = await client.from('leaderboards').insert([
-      {
-        user_id: session.user.id,
-        username: driverName,
-        completion_time_ms: roundedTimeMs,
-        completion_time_formatted: formatTime(roundedTimeMs)
+        return;
       }
-    ]);
 
-    // Supabase SDK DOES NOT throw JS exceptions for database or RLS errors!
-    if (error) {
-      console.error("❌ Supabase Leaderboard Insert Failed:", error.message, error.details, error.hint);
-      return;
+      if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+        console.warn("⚠️ Supabase submission skipped: window.supabase SDK is missing.");
+        return;
+      }
+
+      try {
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const { data: { session }, error: sessionError } = await client.auth.getSession();
+
+        if (sessionError) {
+          console.error("❌ Session Retrieval Error:", sessionError.message);
+          return;
+        }
+
+        if (!session || !session.user) {
+          console.warn("⚠️ Supabase submission skipped: Running in Demo Driver mode (no active auth session).");
+          return;
+        }
+
+        const driverName = window.currentDriverName || "SpeedrunDriver";
+        const roundedTimeMs = Math.round(timeMs);
+
+        console.log(`📡 Submitting score to Supabase for driver '${driverName}' (User ID: ${session.user.id})...`);
+
+        const { data, error } = await client.from('leaderboards').insert([
+          {
+            user_id: session.user.id,
+            username: driverName,
+            completion_time_ms: roundedTimeMs,
+            completion_time_formatted: formatTime(roundedTimeMs)
+          }
+        ]);
+
+        if (error) {
+          console.error("❌ Supabase Leaderboard Insert Failed:", error.message, error.details, error.hint);
+          return;
+        }
+
+        console.log("✅ Leaderboard entry successfully synced to Supabase!", data);
+
+      } catch (err) {
+        console.error("💥 Unexpected failure during Supabase sync:", err);
+      }
     }
-
-    console.log("✅ Leaderboard entry successfully synced to Supabase!", data);
-
-  } catch (err) {
-    // Only handles catastrophic network failures or code runtime crashes
-    console.error("💥 Unexpected network failure during Supabase sync:", err);
-  }
-}
 
       function formatTime(ms) {
         const totalSec = Math.floor(ms / 1000);
