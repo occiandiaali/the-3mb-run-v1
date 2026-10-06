@@ -14,6 +14,10 @@
 
     <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+      <!-- Supabase JS CDN (UMD Browser Build) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+   <!-- Configuration Script -->
+  <script src="config.js"></script>
 
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Inter:wght@300;400;600;700&display=swap");
@@ -146,58 +150,28 @@
 
     <!-- Auth Guard Script -->
     <script>
-            // -----------------------------------------------------------
-      // Helper to ensure CONFIG is available even if script loading order or 404 occurs on play.html
-      // -----------------------------------------------------
-      function getResolvedConfig() {
-        if (window.CONFIG && window.CONFIG.SUPABASE_URL && !window.CONFIG.SUPABASE_URL.includes("YOUR_SUPABASE")) {
-          // Sync to localStorage as backup for multi-page loads
-          try {
-            localStorage.setItem("3mb_config", JSON.stringify(window.CONFIG));
-          } catch (e) {
-            console.warn("Unable to write config to localStorage", e);
-          }
-          return window.CONFIG;
-        }
+         // Singleton Supabase Client Helper to prevent multiple GoTrueClient warnings
+    let sharedSupabaseClient = null;
 
-        // Try recovering from localStorage backup
+    function getSupabaseClient() {
+      if (sharedSupabaseClient) return sharedSupabaseClient;
+
+      const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.CONFIG || {};
+      const isAvailable = SUPABASE_URL && 
+                          !SUPABASE_URL.includes("YOUR_SUPABASE") && 
+                          window.supabase && 
+                          typeof window.supabase.createClient === 'function';
+
+      if (isAvailable) {
         try {
-          const cached = localStorage.getItem("3mb_config");
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (parsed && parsed.SUPABASE_URL) {
-              window.CONFIG = parsed;
-              console.info("💡 [Diagnostic] Restored window.CONFIG from localStorage cache!");
-              return parsed;
-
-            }
-          }
+          sharedSupabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         } catch (e) {
-          console.warn("Failed reading 3mb_config from localStorage", e);
+          console.warn("Failed to create shared Supabase client:", e);
         }
-
-        return window.CONFIG || {};
       }
-
-      // Helper to resolve driver username from memory or local storage
-    // function getResolvedDriverName() {
-    //   if (window.currentDriverName && window.currentDriverName !== "DemoDriver") {
-    //     try {
-    //       localStorage.setItem("3mb_driver_name", window.currentDriverName);
-    //     } catch (e) {}
-    //     return window.currentDriverName;
-    //   }
-
-    //   try {
-    //     const cachedDriver = localStorage.getItem("3mb_driver_name");
-    //     if (cachedDriver) {
-    //       window.currentDriverName = cachedDriver;
-    //       return cachedDriver;
-    //     }
-    //   } catch (e) {}
-
-    //   return window.currentDriverName || "SpeedrunDriver";
-    // }
+      return sharedSupabaseClient;
+    }
+            // -----------------------------------------------------------
         function getResolvedDriverName() {
       try {
         const cachedName = localStorage.getItem("3mb_driver_name");
@@ -207,62 +181,37 @@
     }
     //---------------------------------
       document.addEventListener("DOMContentLoaded", async () => {
-        const config = getResolvedConfig();
+              window.currentDriverName = getResolvedDriverName();
+      const supabase = getSupabaseClient();
 
-        const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
-
-        const cachedDriver = getResolvedDriverName();
-        window.currentDriverName = cachedDriver;
-
-        const isSupabaseAvailable =
-          SUPABASE_URL &&
-          SUPABASE_URL !== "https://YOUR_SUPABASE_PROJECT_ID.supabase.co" &&
-          window.supabase &&
-          typeof window.supabase.createClient === "function";
-
-        if (isSupabaseAvailable) {
-          try {
-            const supabase = window.supabase.createClient(
-              SUPABASE_URL,
-              SUPABASE_ANON_KEY,
-            );
-
-            const { data, error } = await supabase.auth.getSession();
-            if (error || !data || !data.session) {
-              window.location.href = "index.html?unauthorized=true";
-              return;
-            }
-
-            const user = data.session.user;
-            const { data: driverData, error: driverErr } = await supabase
-              .from("drivers")
-              .select("username")
-              .eq("id", user.id);
-
-            if (
-              driverErr ||
-              !driverData ||
-              driverData.length === 0 ||
-              !driverData[0].username
-            ) {
-              window.location.href = "index.html?unauthorized=true";
-              return;
-            }
-
-            window.currentUser = user;
-            window.currentDriverName = driverData[0].username;
-            try {
-              localStorage.setItem("3mb_driver_name", driverData[0].username);
-            } catch (e) {}
-          } catch (err) {
-            console.warn("Auth check bypassed; running local session with driver name:", window.currentDriverName);
-            console.warn(
-              "Auth check bypass error: ",
-              err,
-            );
-            
+      if (supabase) {
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (error || !data || !data.session) {
+            window.location.href = 'index.html?unauthorized=true';
+            return;
           }
-        } 
+          
+          const user = data.session.user;
+          const { data: driverData, error: driverErr } = await supabase
+            .from('drivers')
+            .select('username')
+            .eq('id', user.id);
+
+          if (driverErr || !driverData || driverData.length === 0 || !driverData[0].username) {
+            window.location.href = 'index.html?unauthorized=true';
+            return;
+          }
+          
+          window.currentUser = user;
+          window.currentDriverName = driverData[0].username;
+          try {
+            localStorage.setItem("3mb_driver_name", driverData[0].username);
+          } catch (e) {}
+        } catch (err) {
+          console.warn("Supabase auth check bypassed; running local session with driver name:", window.currentDriverName);
+        }
+      }
       });
     </script>
   </head>
@@ -294,18 +243,13 @@
               >
             </div>
 
-            <!-- <div
+            <div
               id="hud-distance"
               class="font-digital text-xs sm:text-lg font-black text-cyan-400 leading-tight"
             >
               0.0 / 11.8 KM
-            </div> -->
-                       <div
-              id="hud-distance"
-              class="font-digital text-xs sm:text-lg font-black text-cyan-400 leading-tight"
-            >
-              0.0 / 2 KM
             </div>
+
 
             <div
               class="w-full bg-slate-800/80 h-1 sm:h-1.5 rounded-full overflow-hidden mt-1"
@@ -718,14 +662,14 @@
           id="modal-restart-btn"
           class="interactive w-full glass-btn py-3 rounded-xl text-xs font-bold text-white uppercase tracking-wider bg-blue-600/40 hover:bg-blue-600/60 border-blue-400/50"
         >
-          Try Again
+          Go Again
         </button>
-        <div style="margin-top: 6px"></div>
+        <div style="padding-top: 8px"></div>
         <a
           href="index.html"
-          class="p-3 my-2 bg-rose-500/20 text-rose-400 border border-rose-500/40 font-digital font-bold text-xs rounded-lg uppercase tracking-wider"
+          class="p-3 m-3 bg-rose-500/20 text-rose-400 border border-rose-500/40 font-digital font-bold text-xs rounded-lg uppercase tracking-wider"
         >
-          Give Up
+          EXIT
         </a>
       </div>
     </div>
@@ -769,8 +713,8 @@
   </script>
 
     <script>
-      // const TARGET_TRIP_KM = 11.8;
-      const TARGET_TRIP_KM = 2;
+       const TARGET_TRIP_KM = 11.8;
+      
       const TARGET_TRIP_METERS = TARGET_TRIP_KM * 1000;
 
       const CONFIG = {
@@ -1242,7 +1186,7 @@
       });
 
       const weatherParticles = new THREE.Points(particleGeo, particleMat);
-      scene.add(weatherParticles);
+      //scene.add(weatherParticles);
 
       const roadGroup = new THREE.Group();
       scene.add(roadGroup);
@@ -1489,8 +1433,10 @@
         }
 
         if (state.weatherCondition === "Fog") fogDensity = 0.04;
-        else if (["Rain", "Snow"].includes(state.weatherCondition))
+        else if (["Rain", "Snow"].includes(state.weatherCondition)) {
+          scene.add(weatherParticles); //
           fogDensity = 0.025;
+        }  
 
         scene.background.setHex(skyColor);
         scene.fog.color.setHex(skyColor);
@@ -1499,10 +1445,10 @@
 
         const needLights =
           state.timeOfDay === "Night" || state.timeOfDay === "Dusk";
-        // headlightLeft.intensity = needLights ? 2.5 : 0;
-        // headlightRight.intensity = needLights ? 2.5 : 0;
-        headlightLeft.intensity = needLights ? 2.8 : 0;
-        headlightRight.intensity = needLights ? 2.8 : 0;
+        headlightLeft.intensity = needLights ? 2.5 : 0;
+        headlightRight.intensity = needLights ? 2.5 : 0;
+        // headlightLeft.intensity = needLights ? 2.8 : 0;
+        // headlightRight.intensity = needLights ? 2.8 : 0;
         streetLights.forEach((light) =>
           light.material.color.setHex(needLights ? 0xfef08a : 0x475569),
         );
@@ -1695,31 +1641,6 @@
         document.getElementById("end-modal").classList.remove("hidden");
       }
 
-      // async function triggerVictory() {
-      //   state.isFinished = true;
-
-      //   document.getElementById("modal-badge").innerText = "RUN COMPLETED";
-      //   document.getElementById("modal-badge").className =
-      //     "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
-
-      //   document.getElementById("modal-title").innerText =
-      //     "BRIDGE CONQUERED!";
-      //   document.getElementById("modal-title").className =
-      //     "font-digital text-xl sm:text-3xl font-black text-emerald-400 mb-1";
-      //   // document.getElementById("modal-subtitle").innerText =
-      //   //   "Congratulations! You completed the 11.8 KM drive!";
-      //           document.getElementById("modal-subtitle").innerText =
-      //     "Congratulations! You completed the 2 KM drive!";
-
-      //   populateSummaryStats();
-      //   audioSystem.stopRadio();
-      //                   console.log("elapsedTime in secs: ", (state.elapsedTime*1000));
-      //   console.log("elapsedTime in milli secs: ", Date.now() - state.startTime);
-      //   console.log("Formatted elapsedTime: ", formatTime(Date.now() - state.startTime));
-      //   await submitScoreToSupabase((state.elapsedTime*1000));
-
-      //   document.getElementById("end-modal").classList.remove("hidden");
-      // }
 
       async function triggerVictory() {
         state.isFinished = true;
@@ -1733,7 +1654,7 @@
           "font-digital text-xl sm:text-3xl font-black text-emerald-400 mb-1";
         
         document.getElementById("modal-subtitle").innerText =
-          "Congratulations! You completed the 2 KM drive!";
+          "Congratulations! You completed the 11.8 KM drive!";
 
               populateSummaryStats();
         if (window.audioSystem) window.audioSystem.stopRadio();
@@ -1754,10 +1675,9 @@
         const mins = Math.floor(state.elapsedTime / 60);
         const secs = (state.elapsedTime % 60).toFixed(1);
         console.log(`populateSum: ${String(mins).padStart(2, "0")}:${String(secs).padStart(4, "0")}`)
-        // document.getElementById("summary-distance").innerText =
-        //   `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
-                document.getElementById("summary-distance").innerText =
-          `${(state.distance / 1000).toFixed(1)} / 2 KM`;
+        document.getElementById("summary-distance").innerText =
+          `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
+        
         document.getElementById("summary-time").innerText =
           `${String(mins).padStart(2, "0")}:${String(secs).padStart(4, "0")}`;
         document.getElementById("summary-top-speed").innerText =
@@ -1766,76 +1686,52 @@
           state.collisions;
       }
 
-      // async function submitScoreToSupabase(timeMs) {
-      //   const config = window.CONFIG || {};
-      //   const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
-
-      //         if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || !window.supabase) return;
-
-      //   try {
-      //     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      //     const { data: { session } } = await supabase.auth.getSession();
-      //     if (!session) return;
-
-      //     const driverName = window.currentDriverName || "SpeedrunDriver";
-
-      //     await supabase.from('leaderboards').insert([
-      //       {
-      //         user_id: session.user.id,
-      //         username: driverName,
-      //         completion_time_ms: timeMs,
-      //         completion_time_formatted: formatTime(timeMs)
-      //       }
-      //     ]);
-      //   } catch (err) {
-      //     console.warn("Failed to sync score to Supabase:", err);
-      //   }
-      // }
-
+            // Reuse Single Singleton Client Instance
       async function submitScoreToSupabase(timeMs) {
-          const config = getResolvedConfig();
-          const { SUPABASE_URL, SUPABASE_ANON_KEY } = config;
-          if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || !window.supabase) return;
+        const client = getSupabaseClient();
+        const driverName = getResolvedDriverName();
 
-          // 1. Detailed Diagnostic Checks
-          console.log("🔍 [Diagnostic] Evaluated SUPABASE_URL:", SUPABASE_URL);
-          console.log("🔍 [Diagnostic] Evaluated Driver Name:", driverName);
+        if (!client) {
+          console.warn(`⚠️ Supabase submission skipped: client not initialized or unconfigured.`);
+          return;
+        }
 
-          if (!SUPABASE_URL || SUPABASE_URL.includes("YOUR_SUPABASE") || SUPABASE_URL === "undefined") {
-            console.warn(`⚠️ Supabase submission skipped: SUPABASE_URL is unconfigured or default. Captured value: "${SUPABASE_URL}"`);
+        try {
+          let userId = null;
+          const { data } = await client.auth.getSession();
+          if (data && data.session && data.session.user) {
+            userId = data.session.user.id;
+          }
+
+          if (!userId && window.currentUser) {
+            userId = window.currentUser.id;
+          }
+
+          if (!userId) {
+            console.warn("⚠️ Supabase submission skipped: No active authenticated user ID found.");
             return;
           }
 
-          if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-            console.warn("⚠️ Supabase submission skipped: window.supabase SDK is missing.");
-            return;
+          const roundedTimeMs = Math.round(timeMs);
+          const formattedTime = formatTime(roundedTimeMs);
+
+          const { data: result, error } = await client.from('leaderboards').insert([
+            {
+              user_id: userId,
+              username: driverName,
+              completion_time_ms: roundedTimeMs,
+              completion_time_formatted: formattedTime
+            }
+          ]);
+
+          if (error) {
+            console.error("❌ Supabase Leaderboard Insert Error:", error.message);
+          } else {
+            console.log("✅ Leaderboard entry successfully synced to Supabase!", result);
           }
-
-          try {
-            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            const { data: { session } } = await client.auth.getSession();
-            if (!session) return;
-
-            const driverName = getResolvedDriverName();
-
-            const roundedTimeMs = Math.round(timeMs);
-
-            console.log(`📡 Submitting score to Supabase for driver '${driverName}' (User ID: ${session.user.id})...`);
-
-            const { data, error } = await client.from('leaderboards').insert([
-              {
-                user_id: session.user.id,
-                username: driverName,
-                completion_time_ms: roundedTimeMs,
-                completion_time_formatted: formatTime(roundedTimeMs)
-              }
-            ]);
-
-            console.log("✅ Leaderboard entry successfully synced to Supabase!", data);
-
-          } catch (err) {
-            console.error("💥 Unexpected failure during Supabase sync:", err);
-          }
+        } catch (err) {
+          console.error("💥 Unexpected failure during Supabase sync:", err);
+        }
       }
 
       function formatTime(ms) {
@@ -2075,10 +1971,9 @@
         document.getElementById("hud-speed").innerText = Math.floor(
           state.speed,
         );
-        // document.getElementById("hud-distance").innerText =
-        //   `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
-                document.getElementById("hud-distance").innerText =
-          `${(state.distance / 1000).toFixed(1)} / 2 KM`;
+        document.getElementById("hud-distance").innerText =
+          `${(state.distance / 1000).toFixed(1)} / 11.8 KM`;
+
 
         const tripPct = Math.min(
           100,

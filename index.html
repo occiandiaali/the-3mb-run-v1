@@ -9,7 +9,9 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Supabase JS CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> -->
+    <!-- Supabase JS CDN (UMD Browser Build) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <!-- Configuration Script -->
     <script src="config.js"></script>
 
@@ -294,31 +296,13 @@
     </footer>
 
     <script>
-      const config = window.CONFIG || {};
+      // Singleton Supabase Client Pattern
+      let supabaseClientInstance = null;
 
-      // Cache CONFIG in localStorage so play.html can recover it if config.js fails to load
-      if (
-        window.CONFIG &&
-        window.CONFIG.SUPABASE_URL &&
-        !window.CONFIG.SUPABASE_URL.includes("YOUR_SUPABASE")
-      ) {
-        try {
-          localStorage.setItem("3mb_config", JSON.stringify(window.CONFIG));
-        } catch (e) {}
-      } else {
-        try {
-          const cached = localStorage.getItem("3mb_config");
-          if (cached) {
-            window.CONFIG = JSON.parse(cached);
-          }
-        } catch (e) {}
-      }
-      const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.CONFIG || {};
+      function getSupabaseClient() {
+        if (supabaseClientInstance) return supabaseClientInstance;
 
-      let supabaseClient = null;
-
-      // Safely initialize the Supabase client instance
-      function initSupabaseClient() {
+        const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.CONFIG || {};
         const isPlaceholder =
           !SUPABASE_URL ||
           SUPABASE_URL.includes("YOUR_SUPABASE") ||
@@ -331,18 +315,17 @@
           typeof window.supabase.createClient === "function"
         ) {
           try {
-            supabaseClient = window.supabase.createClient(
+            supabaseClientInstance = window.supabase.createClient(
               SUPABASE_URL,
               SUPABASE_ANON_KEY,
             );
           } catch (err) {
             console.warn("Supabase client initialization failed:", err);
-            supabaseClient = null;
+            supabaseClientInstance = null;
           }
         }
+        return supabaseClientInstance;
       }
-
-      initSupabaseClient();
 
       const alertEl = document.getElementById("auth-alert");
       function showAlert(msg, isError = false) {
@@ -352,7 +335,9 @@
       }
 
       async function initPage() {
-        if (!supabaseClient) {
+        const client = getSupabaseClient();
+
+        if (!client) {
           showAlert(
             "Configuration misalignment. Please contact Support.",
             false,
@@ -365,7 +350,7 @@
           fetchGlobalLeaderboard();
 
           // Check current auth session
-          const { data, error } = await supabaseClient.auth.getSession();
+          const { data, error } = await client.auth.getSession();
           if (error) {
             console.warn("Session check error:", error);
             fetchMockLeaderboard();
@@ -380,7 +365,7 @@
             const hash = window.location.hash;
             if (hash && hash.includes("access_token")) {
               const { data: userData, error: userError } =
-                await supabaseClient.auth.getUser();
+                await client.auth.getUser();
               if (userData && userData.user && !userError) {
                 await checkDriverProfile(userData.user);
               }
@@ -402,9 +387,11 @@
       }
 
       async function checkDriverProfile(user) {
-        if (!supabaseClient || !user) return;
+        const client = getSupabaseClient();
+
+        if (!client || !user) return;
         try {
-          const { data, error } = await supabaseClient
+          const { data, error } = await client
             .from("drivers")
             .select("username")
             .eq("id", user.id)
@@ -442,7 +429,8 @@
         .getElementById("magic-link-form")
         .addEventListener("submit", async (e) => {
           e.preventDefault();
-          if (!supabaseClient) return showAlert("Database error..", true);
+          const client = getSupabaseClient();
+          if (!client) return showAlert("Database error..", true);
 
           const email = document.getElementById("auth-email").value.trim();
           const btn = document.getElementById("send-magic-btn");
@@ -450,7 +438,7 @@
           btn.disabled = true;
 
           try {
-            const { error } = await supabaseClient.auth.signInWithOtp({
+            const { error } = await client.auth.signInWithOtp({
               email,
               options: {
                 emailRedirectTo:
@@ -480,7 +468,8 @@
         .getElementById("username-form")
         .addEventListener("submit", async (e) => {
           e.preventDefault();
-          if (!supabaseClient) return;
+          const client = getSupabaseClient();
+          if (!client) return;
 
           const username = document
             .getElementById("username-input")
@@ -489,13 +478,13 @@
           try {
             const {
               data: { session },
-            } = await supabaseClient.auth.getSession();
+            } = await client.auth.getSession();
             const user = session ? session.user : null;
 
             if (!user)
               return showAlert("Session expired. Please log in again.", true);
 
-            const { error } = await supabaseClient
+            const { error } = await client
               .from("drivers")
               .insert([{ id: user.id, username }]);
 
@@ -525,8 +514,8 @@
           try {
             localStorage.removeItem("3mb_driver_name");
           } catch (e) {}
-
-          if (supabaseClient) await supabaseClient.auth.signOut();
+          const client = getSupabaseClient();
+          if (client) await client.auth.signOut();
           window.location.reload();
         });
 
@@ -534,14 +523,15 @@
       async function fetchGlobalLeaderboard() {
         const loadingEl = document.getElementById("leaderboard-loading");
         const listEl = document.getElementById("leaderboard-list");
+        const client = getSupabaseClient();
 
-        if (!supabaseClient || typeof supabaseClient.from !== "function") {
+        if (!client || typeof client.from !== "function") {
           fetchMockLeaderboard();
           return;
         }
 
         try {
-          const { data, error } = await supabaseClient
+          const { data, error } = await client
             .from("leaderboards")
             .select("username, completion_time_formatted, date_achieved")
             .order("completion_time_ms", { ascending: true })
