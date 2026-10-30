@@ -869,7 +869,7 @@
         }
 
         // For cop car?
-                startSiren() {
+        startSiren() {
           if (!this.ctx) return;
           if (this.sirenOsc) return; // Already playing
 
@@ -885,7 +885,7 @@
                     // Modulate frequency repeatedly
           this.sirenLfo = this.ctx.createOscillator();
           const lfoGain = this.ctx.createGain();
-          this.sirenLfo.frequency.value = 1.5; // Modulation speed
+          this.sirenLfo.frequency.value = 2.5;//1.5; // Modulation speed
           lfoGain.gain.value = 350; // Pitch range fluctuation
 
           this.sirenLfo.connect(this.sirenOsc.frequency);
@@ -1464,7 +1464,7 @@
         
         // Pick whichever side of the driver is free
         // policeSideOffset = currentX > 0 ? LANES[0] : LANES[2]; // CONFIG.lanes[car.laneIndex];
-        policeSideOffset = CONFIG.lanes[0];//currentX > 0 ? CONFIG.lanes[0] : CONFIG.lanes[2]; // ;
+        policeSideOffset = CONFIG.lanes[2];//currentX > 0 ? CONFIG.lanes[0] : CONFIG.lanes[2]; // ;
         policeCarMesh.position.set(policeSideOffset, 0, 30); // Spawn 30m behind driver
         
         audioSystem.startSiren();
@@ -1931,10 +1931,18 @@
           state.speed = Math.max(0, state.speed - 38 * delta);
 
           state.straddleTimer += delta;
-          dispatchPoliceCar();
-          console.log("Sounds like a siren..");
 
-          if (state.straddleTimer > 1.0) {
+          // if (state.straddleTimer > 1.0) {
+          //   state.integrity = Math.max(0, state.integrity - 3);
+          //   state.straddleTimer = 0;
+          //   if (state.integrity === 0) {
+          //     triggerGameOver(
+          //       "Vehicle integrity destroyed by persistent lane straddling.",
+          //     );
+          //   }
+          // }
+          if (state.straddleTimer > 3.0) {
+            if (policeState === "INACTIVE") dispatchPoliceCar();
             state.integrity = Math.max(0, state.integrity - 3);
             state.straddleTimer = 0;
             if (state.integrity === 0) {
