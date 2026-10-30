@@ -1416,7 +1416,7 @@
       let policeSirenTimer = 0;
       let policeSideOffset = -3.8; // Left lane default
       
-            function createPoliceCar() {
+      function createPoliceCar() {
         const policeGroup = new THREE.Group();
 
         // Car Body (Black/White Highway Patrol)
@@ -1456,13 +1456,14 @@
       }
 
       policeCarMesh = createPoliceCar();
-            function dispatchPoliceCar() {
+      function dispatchPoliceCar() {
         policeState = "APPROACHING";
         policeSirenTimer = 0;
         policeCarMesh.visible = true;
         
         // Pick whichever side of the driver is free
-        policeSideOffset = currentX > 0 ? LANES[0] : LANES[2];
+        // policeSideOffset = currentX > 0 ? LANES[0] : LANES[2]; // CONFIG.lanes[car.laneIndex];
+        policeSideOffset = currentX > 0 ? CONFIG.lanes[0] : CONFIG.lanes[2]; // ;
         policeCarMesh.position.set(policeSideOffset, 0, 30); // Spawn 30m behind driver
         
         audioSystem.startSiren();
@@ -1968,7 +1969,7 @@
             policeCarMesh.position.z = 0;
             policeState = "RIDING_ALONGSIDE";
           }
-                  } else if (policeState === "RIDING_ALONGSIDE") {
+          } else if (policeState === "RIDING_ALONGSIDE") {
           // Ride right beside driver (Z: 0m) and match horizontal lane movement gently
           policeCarMesh.position.z = 0;
           policeCarMesh.position.x += (policeSideOffset - policeCarMesh.position.x) * (5 * delta);
