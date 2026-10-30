@@ -1651,7 +1651,7 @@
       async function triggerVictory() {
         state.isFinished = true;
 
-        document.getElementById("modal-badge").innerText = "RUN COMPLETED";
+        document.getElementById("modal-badge").innerText = "🏁 RUN COMPLETED";
         document.getElementById("modal-badge").className =
           "inline-block px-3 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase mb-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
 
@@ -1721,6 +1721,20 @@
           const roundedTimeMs = Math.round(timeMs);
           const formattedTime = formatTime(roundedTimeMs);
 
+                    // Fetch current best time for this driver
+          const { data: existingRecord, error: fetchError } = await client
+            .from('leaderboards')
+            .select('id, completion_time_ms')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (fetchError) {
+            console.warn("Error fetching existing leaderboard record:", fetchError.message);
+          }
+
+          // Insert or update only if driver's time is lower or no entry exists
+          if (!existingRecord) {
+
           const { data: result, error } = await client.from('leaderboards').insert([
             {
               user_id: userId,
@@ -1735,10 +1749,31 @@
           } else {
             console.log("✅ Leaderboard entry successfully synced to Supabase!", result);
           }
+        } else if (roundedTimeMs < existingRecord.completion_time_ms) {
+            // Personal Best beaten - Update entry
+            const { data: result, error } = await client
+              .from('leaderboards')
+              .update({
+                username: driverName,
+                completion_time_ms: roundedTimeMs,
+                completion_time_formatted: formattedTime,
+                date_achieved: new Date().toISOString()
+              })
+              .eq('user_id', userId);
+                          if (error) {
+              console.error("❌ Supabase Leaderboard Update Error:", error.message);
+            } else {
+              console.log(`🏆 NEW PERSONAL BEST! Score updated from ${existingRecord.completion_time_ms}ms to ${roundedTimeMs}ms.`, result);
+            }
+          } else {
+            console.log(`⏱️ Run completed (${roundedTimeMs}ms), but did not beat current personal best (${existingRecord.completion_time_ms}ms). Leaderboard kept unchanged.`);
+          }
+
+         
         } catch (err) {
           console.error("💥 Unexpected failure during Supabase sync:", err);
         }
-      }
+      } // submitScoreToSupabase block
 
       function formatTime(ms) {
         const totalSec = Math.floor(ms / 1000);
