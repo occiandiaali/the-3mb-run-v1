@@ -1461,9 +1461,10 @@
         policeSirenTimer = 0;
         policeCarMesh.visible = true;
         
+        
         // Pick whichever side of the driver is free
         // policeSideOffset = currentX > 0 ? LANES[0] : LANES[2]; // CONFIG.lanes[car.laneIndex];
-        policeSideOffset = currentX > 0 ? CONFIG.lanes[0] : CONFIG.lanes[2]; // ;
+        policeSideOffset = CONFIG.lanes[0];//currentX > 0 ? CONFIG.lanes[0] : CONFIG.lanes[2]; // ;
         policeCarMesh.position.set(policeSideOffset, 0, 30); // Spawn 30m behind driver
         
         audioSystem.startSiren();
@@ -1930,8 +1931,8 @@
           state.speed = Math.max(0, state.speed - 38 * delta);
 
           state.straddleTimer += delta;
-          dispatchPoliceCar();
-          console.log("Sounds like a siren..");
+          // dispatchPoliceCar();
+          // console.log("Sounds like a siren..");
 
           if (state.straddleTimer > 1.0) {
             state.integrity = Math.max(0, state.integrity - 3);
@@ -1942,9 +1943,9 @@
               );
             }
           }
-          // if (state.straddleTimer >= 7.0 && policeState === "INACTIVE") {
-          //   dispatchPoliceCar();
-          // }
+          if (state.straddleTimer >= 7.0 && policeState === "INACTIVE") {
+            dispatchPoliceCar();
+          }
         } else {
           state.isStraddling = false;
           state.straddleTimer = 0;
@@ -1978,7 +1979,8 @@
 
           policeSirenTimer += delta;
                     // Dismiss police after 7 seconds of siren, OR if driver stopped straddled lane
-          if (policeSirenTimer >= 7.0 || (!isStraddling && policeSirenTimer >= 2.0)) {
+                    
+          if (policeSirenTimer >= 7.0 || (!state.isStraddling && policeSirenTimer >= 2.0)) {
             policeState = "LEAVING";
           }
                   } else if (policeState === "LEAVING") {
