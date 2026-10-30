@@ -152,11 +152,22 @@
               >
                 Send Magic Link
               </button>
-              <span
-                class="hidden m-4 p-3.5 rounded-xl border text-xs font-semibold"
-                id="resend-link-span"
-                >RESEND</span
+              <div
+                id="resend-container"
+                class="hidden flex items-center justify-between bg-slate-900/90 border border-slate-800 p-3 rounded-xl mt-2"
               >
+                <span class="text-xs text-slate-400"
+                  >Didn't receive the email?</span
+                >
+                <button
+                  type="button"
+                  id="resend-link-btn"
+                  disabled
+                  class="text-xs font-digital font-bold text-slate-500 cursor-not-allowed transition-colors"
+                >
+                  RESEND IN <span id="resend-timer">30</span>S
+                </button>
+              </div>
             </form>
           </div>
 
@@ -430,47 +441,123 @@
       }
 
       // Handle Magic Link Submission
-      const resendSpan = document.getElementById("resend-link-span");
+      let resendTimerInterval = null;
+      function startResendCooldown(seconds = 30) {
+        const resendContainer = document.getElementById("resend-container");
+        const resendBtn = document.getElementById("resend-link-btn");
+        const timerSpan = document.getElementById("resend-timer");
+
+        resendContainer.classList.remove("hidden");
+        resendBtn.disabled = true;
+        resendBtn.className =
+          "text-xs font-digital font-bold text-slate-500 cursor-not-allowed transition-colors";
+
+        let timeLeft = seconds;
+        timerSpan.innerText = timeLeft;
+
+        if (resendTimerInterval) clearInterval(resendTimerInterval);
+        resendTimerInterval = setInterval(() => {
+          timeLeft--;
+          if (timeLeft > 0) {
+            timerSpan.innerText = timeLeft;
+          } else {
+            clearInterval(resendTimerInterval);
+            resendBtn.disabled = false;
+            resendBtn.className =
+              "text-xs font-digital font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer transition-colors";
+            resendBtn.innerText = "RESEND NOW";
+          }
+        }, 1000);
+      }
+      // extracted send link feature into function
+      async function sendMagicLink() {
+        const client = getSupabaseClient();
+        if (!client) return showAlert("Database error..", true);
+
+        const email = document.getElementById("auth-email").value.trim();
+        const btn = document.getElementById("send-magic-btn");
+        btn.innerText = "SENDING...";
+        btn.disabled = true;
+
+        try {
+          const { error } = await client.auth.signInWithOtp({
+            email,
+            options: {
+              emailRedirectTo:
+                window.location.origin + window.location.pathname,
+            },
+          });
+          if (error) {
+            showAlert(error.message, true);
+            btn.innerText = "SEND MAGIC LINK";
+            btn.disabled = false;
+          } else {
+            showAlert(
+              "Magic Link sent! Please check your email (inbox or spam) to complete sign-in.",
+            );
+            btn.innerText = "LINK SENT";
+            startResendCooldown(30);
+          }
+        } catch (err) {
+          showAlert("Failed to send Magic Link. Contact Support.", true);
+          btn.innerText = "SEND MAGIC LINK";
+          btn.disabled = false;
+        }
+      }
+
+      // document
+      //   .getElementById("magic-link-form")
+      //   .addEventListener("submit", async (e) => {
+      //     e.preventDefault();
+      //     const client = getSupabaseClient();
+      //     if (!client) return showAlert("Database error..", true);
+
+      //     const email = document.getElementById("auth-email").value.trim();
+      //     const btn = document.getElementById("send-magic-btn");
+      //     btn.innerText = "SENDING...";
+      //     btn.disabled = true;
+
+      //     try {
+      //       const { error } = await client.auth.signInWithOtp({
+      //         email,
+      //         options: {
+      //           emailRedirectTo:
+      //             window.location.origin + window.location.pathname,
+      //         },
+      //       });
+
+      //       if (error) {
+      //         showAlert(error.message, true);
+      //         btn.innerText = "SEND MAGIC LINK";
+      //         btn.disabled = false;
+      //       } else {
+      //         showAlert(
+      //           "Magic Link sent! Please check your email (inbox or spam) to complete sign-in.",
+      //         );
+      //         btn.innerText = "LINK SENT";
+      //         resendSpan.style.display = "block";
+      //       }
+      //     } catch (err) {
+      //       showAlert("Failed to send Magic Link. Contact Support.", true);
+      //       btn.innerText = "SEND MAGIC LINK";
+      //       btn.disabled = false;
+      //     }
+      //   });
+
       document
         .getElementById("magic-link-form")
         .addEventListener("submit", async (e) => {
           e.preventDefault();
-          const client = getSupabaseClient();
-          if (!client) return showAlert("Database error..", true);
-
-          const email = document.getElementById("auth-email").value.trim();
-          const btn = document.getElementById("send-magic-btn");
-          btn.innerText = "SENDING...";
-          btn.disabled = true;
-
-          try {
-            const { error } = await client.auth.signInWithOtp({
-              email,
-              options: {
-                emailRedirectTo:
-                  window.location.origin + window.location.pathname,
-              },
-            });
-
-            if (error) {
-              showAlert(error.message, true);
-              btn.innerText = "SEND MAGIC LINK";
-              btn.disabled = false;
-            } else {
-              showAlert(
-                "Magic Link sent! Please check your email (inbox or spam) to complete sign-in.",
-              );
-              btn.innerText = "LINK SENT";
-              resendSpan.style.display = "block";
-            }
-          } catch (err) {
-            showAlert("Failed to send Magic Link. Contact Support.", true);
-            btn.innerText = "SEND MAGIC LINK";
-            btn.disabled = false;
-          }
+          await sendMagicLink();
         });
 
-      // resendSpan.addEventListener('click', () => {});
+      document
+        .getElementById("resend-link-btn")
+        .addEventListener("click", async () => {
+          const resendBtn = document.getElementById("resend-link-btn");
+          if (resendBtn.disabled) return;
+          await sendMagicLink();
+        });
 
       // Handle Username Form
       document
