@@ -1500,7 +1500,10 @@
       );
       bindTouchControls(
         btnAccel,
-        () => (state.isAccelerating = true),
+        () => {
+          state.isAccelerating = true;
+        
+        },
         () => (state.isAccelerating = false),
       );
       bindTouchControls(
@@ -1508,6 +1511,7 @@
         () => {
           state.isBraking = true;
           // if (state.speed > 30) audioSystem.playScreech();
+          
           state.fuel -= 1;
         },
         () => (state.isBraking = false),
@@ -1526,6 +1530,7 @@
         if (["ArrowDown", "s", "S"].includes(e.key)) {
           // if (!state.isBraking && state.speed > 30) audioSystem.playScreech();
           state.isBraking = true;
+          audioSystem.playScreech();
           state.fuel -= 1;
           // Fuel Tank Update
           if (state.fuel === 0) {
