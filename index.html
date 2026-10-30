@@ -152,6 +152,11 @@
               >
                 Send Magic Link
               </button>
+              <span
+                class="hidden m-4 p-3.5 rounded-xl border text-xs font-semibold"
+                id="resend-link-span"
+                >RESEND</span
+              >
             </form>
           </div>
 
@@ -425,6 +430,7 @@
       }
 
       // Handle Magic Link Submission
+      const resendSpan = document.getElementById("resend-link-span");
       document
         .getElementById("magic-link-form")
         .addEventListener("submit", async (e) => {
@@ -455,6 +461,7 @@
                 "Magic Link sent! Please check your email (inbox or spam) to complete sign-in.",
               );
               btn.innerText = "LINK SENT";
+              resendSpan.style.display = "block";
             }
           } catch (err) {
             showAlert("Failed to send Magic Link. Contact Support.", true);
@@ -462,6 +469,8 @@
             btn.disabled = false;
           }
         });
+
+      // resendSpan.addEventListener('click', () => {});
 
       // Handle Username Form
       document
