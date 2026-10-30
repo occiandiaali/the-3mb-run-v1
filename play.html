@@ -858,7 +858,8 @@
 
         updateEngineSound(speed, rpm) {
           if (!this.ctx) return;
-          const pitch = 35 + (rpm / 8000) * 160 + (speed / CONFIG.maxSpeed) * 30;
+          // const pitch = 35 + (rpm / 8000) * 160 + (speed / CONFIG.maxSpeed) * 30;
+          const pitch = 55 + (rpm / 8000) * 160 + (speed / CONFIG.maxSpeed) * 30;
           this.engineOsc.frequency.setTargetAtTime(pitch, this.ctx.currentTime, 0.1);
         }
 
